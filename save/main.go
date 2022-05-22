@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"time"
 	"path"
+	"path/filepath"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -40,7 +41,7 @@ func main() {
 	// Create a new Discord session using the provided bot token.
 	dg, err := discordgo.New("Bot " + Token)
 	if err != nil {
-		log.Fatalf("error creating Discord session,", err)
+		log.Fatalf("error creating Discord session, %s", err)
 		return
 	}
 
@@ -49,12 +50,12 @@ func main() {
 	// Open a websocket connection to Discord and begin listening.
 	err = dg.Open()
 	if err != nil {
-		log.Fatalf("error opening connection,", err)
+		log.Fatalf("error opening connection, %s", err)
 		return
 	}
 
 	// Wait here until CTRL-C or other term signal is received.
-	log.Print("Bot is now running.")
+	log.Printf("Bot is now running.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
@@ -72,7 +73,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	if m.Content != "" {
-		log.Print("Message content: ", m.Content)
+		log.Printf("Message content: %s", m.Content)
 	}
 
 	if len(m.Attachments) > 0 {
@@ -115,15 +116,21 @@ func processAttachment(attachment *discordgo.MessageAttachment) {
 			"failed to get %s, got response code: %d",
 			attachment.URL, response.StatusCode)
 	} else {
-		log.Print("successfully pre-fetched ", attachment.URL)
+		log.Printf("successfully pre-fetched %s", attachment.URL)
 		url, file := path.Split(attachment.URL)
-		log.Print("base url: ", url)
-		log.Print("file: ",  file)
-		err := DownloadFile(file, attachment.URL)
-		if err != nil {
-			log.Fatalf("Error retrving file to local disk! %s", err)
+		ext := filepath.Ext(file)
+		if (ext == ".zip" || ext == ".rar" || ext == ".7z" || ext == ".zstd") {
+			log.Printf("base url: %s", url)
+			log.Printf("file: %s",  file)
+			log.Printf("extension: %s",  ext)
+			err := DownloadFile(file, attachment.URL)
+			if err != nil {
+				log.Fatalf("Error retrving file to local disk! %s", err)
+			}
+				log.Printf("Downloaded: " + attachment.URL)
+		} else {
+			log.Printf("Mismatched file extension! \"%s\" Ignoring download.", ext)
 		}
-			log.Print("Downloaded: " + attachment.URL)
 	}
 }
 
