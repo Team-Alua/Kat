@@ -31,6 +31,16 @@ func NewClientRequest(s *discordgo.Session, m *discordgo.MessageCreate) ClientRe
 	return ClientRequest{Session: s, Message: m}
 }
 
+type ClientState struct {
+	Id string
+	Status string
+	FileUploads []string
+}
+
+func NewClientState(id string) ClientState {
+	return ClientState{Id: id, Status: "", FileUploads: make([]string, 10)}
+}
+
 var requests chan ClientRequest
 
 func getHttpClient() *http.Client {
@@ -46,10 +56,46 @@ func init() {
 	}
 	Token = strings.TrimSpace(string(data))
 }
+
+func CommandHandler(cr ClientRequest, cs ClientState, r chan<- ClientState) {
+	s := cr.Session
+	m := cr.Message
+	s.ChannelMessageSend(m.ChannelID, "I have received your request! I will now wait 10 seconds.")
+	time.Sleep(10 * time.Second)
+	s.ChannelMessageSend(m.ChannelID, "I'm sending this message in the CommandHandler")
+	r <- cs
+}
+
 func RequestHandler(ch <-chan ClientRequest) {
+	respChan := make(chan ClientState)
+	states := make(map[string]ClientState)	
+	holds := make(map[string]bool)
 	for {
-		cr := <-ch	
-		fmt.Println("User sent " + cr.Message.Content)
+		select {
+		case cr := <-ch:
+			id := cr.Message.Author.ID
+			// Check if user has a hold 
+			// If not create a hold before proceeding
+			if val, ok := holds[id]; !ok || !val {
+				holds[id] = true
+			} else if holds[id] {
+				s := cr.Session
+				m := cr.Message
+				s.ChannelMessageSend(m.ChannelID, "You are going too fast!")
+				// Ignore
+				continue
+			}
+			// Check if user has a state or not
+			
+			if _, ok := states[id]; !ok {
+				states[id] = NewClientState(id)
+			}
+			go CommandHandler(cr, states[id], respChan)
+		case resp := <-respChan:
+			id := resp.Id
+			holds[id] = false
+			states[id] = resp
+		}
 	}
 
 }
