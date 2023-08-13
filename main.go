@@ -57,57 +57,84 @@ func init() {
 	Token = strings.TrimSpace(string(data))
 }
 
-func CommandHandler(cr ClientRequest, cs ClientState, r chan<- ClientState) {
-	s := cr.Session
-	m := cr.Message
-	if cs.Status == "" {
-		cs.Status = "FileUpload"
-		// So the user can start uploading before
-		// the message is sent
-		r <- cs
-		s.ChannelMessageSend(m.ChannelID, "Please upload all the files or link to files. Send done when you are done.")
-	} else if cs.Status == "FileUpload" {
-		// Try to do this as quickly as possible so the user doesn't have to wait.
-		if m.Content == "Done" {
-			cs.Status = "Choice"
-			r <- cs
-			s.ChannelMessageSend(m.ChannelID, "Nice. Now what do you want to with the files?")
+func CommandHandler(req <-chan ClientRequest, resp chan<- string) {
+	var cs ClientState
+	for {
+		cr := <- req
+		s := cr.Session
+		m := cr.Message
+		clientId := m.Author.ID
+		if cs.Status == "" {
+			cs.Status = "FileUpload"
+			// So the user can start uploading before
+			// the message is sent
+			resp <- clientId
+			s.ChannelMessageSend(m.ChannelID, "Please upload all the files or link to files. Send done when you are done.")
+		} else if cs.Status == "FileUpload" {
+			// Try to do this as quickly as possible so the user doesn't have to wait.
+			if m.Content == "Done" {
+				cs.Status = "Choice"
+				resp <- clientId
+				s.ChannelMessageSend(m.ChannelID, "Nice. Now what do you want to with the files?")
+			} else {
+				resp <- clientId
+			}
+		} else if cs.Status == "Choice" {
+			cs.Status = ""
+			resp <- clientId
+			s.ChannelMessageSend(m.ChannelID, "Not implemented. Starting over.")
 		} else {
-			r <- cs
+			resp <- clientId
 		}
-	} else if cs.Status == "Choice" {
-		cs.Status = ""
-		r <- cs
-		s.ChannelMessageSend(m.ChannelID, "Not implemented. Starting over.")
-	}
+	}	
 }
 
 func RequestHandler(ch <-chan ClientRequest) {
-	respChan := make(chan ClientState)
-	states := make(map[string]ClientState)	
-	holds := make(map[string]bool)
+	respChan := make(chan string)
+	states := make(map[string]chan ClientRequest)
+	queue := make(map[string][]ClientRequest)
+	active := make(map[string]bool)
 	for {
 		select {
 		case cr := <-ch:
+			var reqChan chan ClientRequest
 			id := cr.Message.Author.ID
-			// Check if user has a hold 
-			// If not create a hold before proceeding
-			if val, ok := holds[id]; !ok || !val {
-				holds[id] = true
-			} else if holds[id] {
-				// Ignore
-				continue
-			}
 			// Check if user has a state or not
-			
 			if _, ok := states[id]; !ok {
-				states[id] = NewClientState(id)
+				states[id] = make(chan ClientRequest)
 			}
-			go CommandHandler(cr, states[id], respChan)
-		case resp := <-respChan:
-			id := resp.Id
-			holds[id] = false
-			states[id] = resp
+			// Get the ClientRequest channel
+			reqChan = states[id]
+
+			if _, ok := queue[id]; !ok {
+				queue[id] = make([]ClientRequest, 0)
+			}
+
+			// Give user their own goroutine
+			if _, ok := active[id]; !ok {
+				active[id] = true
+				go CommandHandler(states[id], respChan)
+				reqChan <- cr
+			} else if active[id] {
+				// Add to user queue
+				queue[id] = append(queue[id], cr)
+			} else {
+				// Send user request
+				reqChan <- cr
+			}
+		case id := <-respChan:
+			fmt.Println("Done " + id)
+			uq := queue[id]
+			// It's only active if
+			// we are adding new messages
+			// from the queue
+			active[id] = len(uq) > 0
+			if len(uq) > 0 {
+				reqChan := states[id]
+				cr := uq[0]
+				queue[id] = append(uq[1:])
+				reqChan <- cr
+			}
 		}
 	}
 
