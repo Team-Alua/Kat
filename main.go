@@ -64,8 +64,9 @@ func CommandHandler(req <-chan ClientRequest, resp chan<- string) {
 		s := cr.Session
 		m := cr.Message
 		clientId := m.Author.ID
+		cs.Status = "End"
 		if cs.Status == "" {
-			cs.Status = "FileUpload"
+			cs.FileUploads = make([]string, 0)
 			// So the user can start uploading before
 			// the message is sent
 			resp <- clientId
@@ -73,20 +74,26 @@ func CommandHandler(req <-chan ClientRequest, resp chan<- string) {
 		} else if cs.Status == "FileUpload" {
 			// Try to do this as quickly as possible so the user doesn't have to wait.
 			if m.Content == "Done" {
-				cs.Status = "Choice"
+				cs.Status = "Online"
 				resp <- clientId
-				s.ChannelMessageSend(m.ChannelID, "Nice. Now what do you want to with the files?")
+				s.ChannelMessageSend(m.ChannelID, "Ready to apply online patches?")
 			} else {
+				for _, attachment := range m.Attachments {
+					cs.FileUploads = append(cs.FileUploads, attachment.URL)
+				}
 				resp <- clientId
 			}
-		} else if cs.Status == "Choice" {
-			cs.Status = ""
+		} else if cs.Status == "Online" {
+			cs.Status = "End"
 			resp <- clientId
-			s.ChannelMessageSend(m.ChannelID, "Not implemented. Starting over.")
-		} else {
-			resp <- clientId
+			s.ChannelMessageSend(m.ChannelID, "End")
+		} else if cs.Status == "End" {
+			s.ChannelMessageSend(m.ChannelID, "This is the end")
+			resp <- ("end:" + clientId)
+			break
 		}
 	}	
+	fmt.Println("Exiting goroutine")
 }
 
 func RequestHandler(ch <-chan ClientRequest) {
@@ -109,6 +116,8 @@ func RequestHandler(ch <-chan ClientRequest) {
 			if _, ok := queue[id]; !ok {
 				queue[id] = make([]ClientRequest, 0)
 			}
+			_, ok := active[id]
+			fmt.Println("Is ok?", ok)
 
 			// Give user their own goroutine
 			if _, ok := active[id]; !ok {
@@ -123,7 +132,12 @@ func RequestHandler(ch <-chan ClientRequest) {
 				reqChan <- cr
 			}
 		case id := <-respChan:
-			fmt.Println("Done " + id)
+			if strings.HasPrefix(id, "end:") {
+				id = id[len("end:"):]
+				fmt.Println(id, len(id))
+				delete(active, id)
+				continue
+			}
 			uq := queue[id]
 			// It's only active if
 			// we are adding new messages
