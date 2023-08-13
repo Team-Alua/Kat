@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io"
 	"os"
 	"os/signal"
 	"syscall"
@@ -11,8 +10,6 @@ import (
 	"strings"
 	"net/http"
 	"time"
-	"path"
-	"path/filepath"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -57,44 +54,6 @@ func init() {
 	Token = strings.TrimSpace(string(data))
 }
 
-func CommandHandler(req <-chan ClientRequest, resp chan<- string) {
-	var cs ClientState
-	for {
-		cr := <- req
-		s := cr.Session
-		m := cr.Message
-		clientId := m.Author.ID
-		cs.Status = "End"
-		if cs.Status == "" {
-			cs.FileUploads = make([]string, 0)
-			// So the user can start uploading before
-			// the message is sent
-			resp <- clientId
-			s.ChannelMessageSend(m.ChannelID, "Please upload all the files or link to files. Send done when you are done.")
-		} else if cs.Status == "FileUpload" {
-			// Try to do this as quickly as possible so the user doesn't have to wait.
-			if m.Content == "Done" {
-				cs.Status = "Online"
-				resp <- clientId
-				s.ChannelMessageSend(m.ChannelID, "Ready to apply online patches?")
-			} else {
-				for _, attachment := range m.Attachments {
-					cs.FileUploads = append(cs.FileUploads, attachment.URL)
-				}
-				resp <- clientId
-			}
-		} else if cs.Status == "Online" {
-			cs.Status = "End"
-			resp <- clientId
-			s.ChannelMessageSend(m.ChannelID, "End")
-		} else if cs.Status == "End" {
-			s.ChannelMessageSend(m.ChannelID, "This is the end")
-			resp <- ("end:" + clientId)
-			break
-		}
-	}	
-	fmt.Println("Exiting goroutine")
-}
 
 func RequestHandler(ch <-chan ClientRequest) {
 	respChan := make(chan string)
@@ -116,9 +75,6 @@ func RequestHandler(ch <-chan ClientRequest) {
 			if _, ok := queue[id]; !ok {
 				queue[id] = make([]ClientRequest, 0)
 			}
-			_, ok := active[id]
-			fmt.Println("Is ok?", ok)
-
 			// Give user their own goroutine
 			if _, ok := active[id]; !ok {
 				active[id] = true
@@ -134,7 +90,6 @@ func RequestHandler(ch <-chan ClientRequest) {
 		case id := <-respChan:
 			if strings.HasPrefix(id, "end:") {
 				id = id[len("end:"):]
-				fmt.Println(id, len(id))
 				delete(active, id)
 				continue
 			}
@@ -241,6 +196,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		return
 	}
+	m.Content = strings.ToLower(m.Content)
 	// Every message sent will go to another goroutine that will handle
 	// the stateful ness of this
 	requests <- NewClientRequest(s,m)
@@ -272,64 +228,5 @@ func StartBotInteraction(s *discordgo.Session , m*discordgo.MessageCreate) *disc
 	// The bot will now only talk in this thread
 	m.ChannelID = thread.ID
 	return thread
-}
-
-// https://golangcode.com/download-a-file-from-a-url/
-// DownloadFile will download a url to a local file. It's efficient because it will
-// write as it downloads and not load the whole file into memory.
-func DownloadFile(filepath string, url string) error {
-
-	// Get the data
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-
-	defer resp.Body.Close()
-
-	// Create the file
-	out, err := os.Create(filepath)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	// Write the body to file
-	_, err = io.Copy(out, resp.Body)
-	return err
-}
-
-// https://github.com/NyanKiyoshi/deletednt-discord
-func processAttachment(attachment *discordgo.MessageAttachment) {
-	// Get the attachment using a HEAD request and ensure it succeed: no error and HTTP 200
-	if response, err := httpClient.Head(attachment.URL); err != nil {
-		log.Fatalf("failed to get %s: %s", attachment.URL, err)
-	} else if response.StatusCode != 200 {
-		log.Fatalf(
-			"failed to get %s, got response code: %d",
-			attachment.URL, response.StatusCode)
-	} else {
-		log.Printf("successfully pre-fetched %s", attachment.URL)
-		url, file := path.Split(attachment.URL)
-		ext := filepath.Ext(file)
-		if (ext == ".zip" || ext == ".rar" || ext == ".7z" || ext == ".zstd") {
-			log.Printf("base url: %s", url)
-			log.Printf("file: %s",  file)
-			log.Printf("extension: %s",  ext)
-			err := DownloadFile(file, attachment.URL)
-			if err != nil {
-				log.Fatalf("Error retrving file to local disk! %s", err)
-			}
-				log.Printf("Downloaded: " + attachment.URL)
-		} else {
-			log.Printf("Mismatched file extension! \"%s\" Ignoring download.", ext)
-		}
-	}
-}
-
-func processAttachments(attachments []*discordgo.MessageAttachment) {
-	for _, attachment := range attachments {
-		processAttachment(attachment)
-	}
 }
 
