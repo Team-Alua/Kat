@@ -60,10 +60,26 @@ func init() {
 func CommandHandler(cr ClientRequest, cs ClientState, r chan<- ClientState) {
 	s := cr.Session
 	m := cr.Message
-	s.ChannelMessageSend(m.ChannelID, "I have received your request! I will now wait 10 seconds.")
-	time.Sleep(10 * time.Second)
-	s.ChannelMessageSend(m.ChannelID, "I'm sending this message in the CommandHandler")
-	r <- cs
+	if cs.Status == "" {
+		cs.Status = "FileUpload"
+		// So the user can start uploading before
+		// the message is sent
+		r <- cs
+		s.ChannelMessageSend(m.ChannelID, "Please upload all the files or link to files. Send done when you are done.")
+	} else if cs.Status == "FileUpload" {
+		// Try to do this as quickly as possible so the user doesn't have to wait.
+		if m.Content == "Done" {
+			cs.Status = "Choice"
+			r <- cs
+			s.ChannelMessageSend(m.ChannelID, "Nice. Now what do you want to with the files?")
+		} else {
+			r <- cs
+		}
+	} else if cs.Status == "Choice" {
+		cs.Status = ""
+		r <- cs
+		s.ChannelMessageSend(m.ChannelID, "Not implemented. Starting over.")
+	}
 }
 
 func RequestHandler(ch <-chan ClientRequest) {
@@ -79,9 +95,6 @@ func RequestHandler(ch <-chan ClientRequest) {
 			if val, ok := holds[id]; !ok || !val {
 				holds[id] = true
 			} else if holds[id] {
-				s := cr.Session
-				m := cr.Message
-				s.ChannelMessageSend(m.ChannelID, "You are going too fast!")
 				// Ignore
 				continue
 			}
@@ -146,6 +159,8 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 	msg := strings.TrimSpace(m.Content)
 
+	m.Content = msg
+
 	ch, _ := s.State.Channel(m.ChannelID);
 	// Check if user is in their thread
 	var threadChannel  *discordgo.Channel = nil
@@ -208,7 +223,7 @@ func StartBotInteraction(s *discordgo.Session , m*discordgo.MessageCreate) *disc
 		Name: GetUserThreadChannelName(m.Author),
 		AutoArchiveDuration: 60,
 		Invitable: false,
-		RateLimitPerUser: 10,
+		RateLimitPerUser: 5,
 	})
 	if err != nil {
 		return nil
