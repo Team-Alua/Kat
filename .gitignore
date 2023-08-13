@@ -11,6 +11,9 @@
 # Test binary, built with `go test -c`
 *.test
 
+# Where the bot token will be
+token
+
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
