@@ -187,7 +187,11 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if msg == "+wakeup" {
 			if threadChannel == nil {
 				threadChannel = StartBotInteraction(s,m)
-				s.ChannelMessageSend(m.ChannelID, "Woken up")
+				if threadChannel == nil {
+					s.ChannelMessageSend(m.ChannelID, "I could not create a new thread. Likely a permission issue. Heading back to sleep.")
+				} else {
+					s.ChannelMessageSend(m.ChannelID, "Woken up")
+				}
 			} else {
 				m.ChannelID = threadChannel.ID
 				s.ChannelMessageSend(m.ChannelID, "Woken up again")
