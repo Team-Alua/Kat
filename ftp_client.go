@@ -46,6 +46,11 @@ func (c *FtpClient) CreateTempFolder(id string) (string, bool) {
 func (c *FtpClient) UploadSave(archive *zip.ReadCloser, id string) (string, bool) {
 	errMsg := ""
 	for _, f := range archive.File {
+		// Do not upload folders to the PS4
+		if f.FileInfo().IsDir() {
+			continue
+		}
+
 		tp := "/data/" + id	
 		if strings.HasSuffix(f.Name, ".bin") {
 			tp += ".bin"

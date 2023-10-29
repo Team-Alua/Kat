@@ -150,6 +150,10 @@ func DoUpdate(s *discordgo.Session, m*discordgo.MessageCreate) {
 	// Look for the shortest save name
 	saveName := ""
 	for _, f := range psarc.File {
+		// Ignore folders
+		if f.FileInfo().IsDir() {
+			continue
+		}
 		if !strings.HasSuffix(f.Name, ".bin") {
 			saveName = f.Name
 		}
