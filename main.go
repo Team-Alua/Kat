@@ -28,15 +28,6 @@ func NewClientRequest(s *discordgo.Session, m *discordgo.MessageCreate) ClientRe
 	return ClientRequest{Session: s, Message: m}
 }
 
-type ClientState struct {
-	Id string
-	Status string
-	FileUploads []string
-}
-
-func NewClientState(id string) ClientState {
-	return ClientState{Id: id, Status: "", FileUploads: make([]string, 10)}
-}
 
 var requests chan ClientRequest
 

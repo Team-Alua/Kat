@@ -21,7 +21,7 @@ func NewFtpClient(ip string, port string) *FtpClient {
 }
 
 func (c *FtpClient) Login() (string, bool) {
-	conn, err := ftp.Dial(c.ip + ":" + c.port, ftp.DialWithTimeout(5*time.Second))
+	conn, err := ftp.Dial(c.ip + ":" + c.port, ftp.DialWithTimeout(1*time.Second))
 	if err != nil {
 		return "Failed to connect to ftp server.", false
 	}

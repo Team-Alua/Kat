@@ -5,55 +5,21 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"strings"
 	"archive/zip"
-	"os"
-	"net/url"
 	"bytes"
-	"fmt"
 )
 
-func CheckDumpAttachments(ma []*discordgo.MessageAttachment) (string, bool) {
-	if len(ma) == 0 {
-		return "Must add at least one attachment", false
-	}
-
-	if len(ma) > 1 {
-		return "Must have only one attachment", false
-	}
-	u, _ := url.Parse(ma[0].URL)
-	if !strings.HasSuffix(u.Path, ".zip") {
-		return "Attachment must be a zip", false
-	}
-	
-	return "", true
-}
-
-
-func DoDump(s *discordgo.Session, m*discordgo.MessageCreate) {
-	if resp, ok := CheckDumpAttachments(m.Attachments); !ok {
-		s.ChannelMessageSend(m.ChannelID, resp)
+func DoDump(s *discordgo.Session, m*discordgo.MessageCreate, pzn string) {
+	if (pzn == "") {
+		s.ChannelMessageSend(m.ChannelID, "There must be at least one upload.")
 		return
 	}
-	zn := m.Author.ID + "_PS4.zip"
-	if err := DownloadFile(zn, m.Attachments[0].URL); err != nil {
-		fmt.Println(err)
-		s.ChannelMessageSend(m.ChannelID, "Failed to download attachment.")
-		return
-	}
-	defer os.Remove(zn)
-	s.ChannelMessageSend(m.ChannelID, "Downloaded attachment.")
-
 	
-	archive, err := zip.OpenReader(zn)
+	archive, err := zip.OpenReader(pzn)
 	if err != nil {
 		s.ChannelMessageSend(m.ChannelID, "There was an issue opening the file")
 		return 
 	}
 	defer archive.Close()
-	if resp, ok := CheckSaveZip(archive); !ok {
-		s.ChannelMessageSend(m.ChannelID, resp)
-		return
-	}
-	s.ChannelMessageSend(m.ChannelID, "Zip passed all checks.")
 	
 	// Generate ID 
 	id := strings.ReplaceAll(uuid.New().String(), "-", "")

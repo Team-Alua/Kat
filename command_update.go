@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/google/uuid"
 	"github.com/bwmarrin/discordgo"
-	"net/url"
 	"strings"
 	"fmt"
 	"os"
@@ -11,73 +10,48 @@ import (
 )
 
 func CheckUpdateAttachments(ma []*discordgo.MessageAttachment) (string, bool) {
-	if len(ma) != 2 {
-		return "Must have exactly two attachment", false
+	if len(ma) != 1 {
+		return "Please upload a single zip.", false
 	}
 
-	for _, m := range ma {
-		u, _ := url.Parse(m.URL)
-		if !strings.HasSuffix(u.Path, ".zip") {
-			return "All attachments must be a zip", false
-		}
+	if !strings.HasSuffix(ma[0].Filename, ".zip") {
+		return "Upload must be a zip file", false
 	}
 
 	return "", true
 }
 
-func CheckUpdateAttachmentNames(ma []*discordgo.MessageAttachment) (string, bool) {
-	uc := 0
-	for _, m := range ma {
-		u, _ := url.Parse(m.URL)
-		if strings.HasSuffix(u.Path, "/update.zip") {
-			uc += 1
-		}
-	}
-	if uc != 1 {
-		return "There must be exactly one attachment named update.zip", false
+func DownloadUpdateAttachments(m *discordgo.MessageCreate) (string, bool) {
+	ma := m.Attachments[0]
+	zn := m.Author.ID + "_" + ma.ID + ".zip"
+
+	if err := DownloadFile(zn, ma.URL); err != nil {
+		fmt.Println(err)
+		return fmt.Sprintf("Failed to download %s.", ma.Filename), false
 	}
 
 	return "", true
 }
 
-func DownloadUpdateAttachments(ma []*discordgo.MessageAttachment, prefix string) (string, bool) {
-	for _, m := range ma {
-		
-		u, _ := url.Parse(m.URL)
-		zn := "update.zip"
-		if !strings.HasSuffix(u.Path, "/update.zip") {
-			zn = "PS4.zip"
-		}
-		zn = prefix + "_" + zn
-
-		if err := DownloadFile(zn, m.URL); err != nil {
-			fmt.Println(err)
-			return fmt.Sprintf("Failed to download %s.", m.URL), false
-		}
+func DoUpdate(s *discordgo.Session, m *discordgo.MessageCreate, pzn string) {
+	// Must have at least one upload
+	if (pzn == "") {
+		s.ChannelMessageSend(m.ChannelID, "Must have at least one upload.")
+		return
 	}
-	return "", true
-}
 
-func DoUpdate(s *discordgo.Session, m*discordgo.MessageCreate) {
 	if resp, ok := CheckUpdateAttachments(m.Attachments); !ok {
 		s.ChannelMessageSend(m.ChannelID, resp)
 		return
 	}
 
-	if resp, ok := CheckUpdateAttachmentNames(m.Attachments); !ok {
-		s.ChannelMessageSend(m.ChannelID, resp)
-		return
-	}
-	
-	if resp, ok := DownloadUpdateAttachments(m.Attachments, m.Author.ID); !ok {
+	if resp, ok := DownloadUpdateAttachments(m); !ok {
 		s.ChannelMessageSend(m.ChannelID, resp)
 		return
 	}
 
-	pzn := m.Author.ID + "_PS4.zip"
 	uzn := m.Author.ID + "_update.zip" 
 	// Clean up zip files
-	defer os.Remove(pzn)
 	defer os.Remove(uzn)
 
 	psarc, err := zip.OpenReader(pzn)
@@ -86,11 +60,6 @@ func DoUpdate(s *discordgo.Session, m*discordgo.MessageCreate) {
 		return 
 	}
 	defer psarc.Close()
-
-	if resp, ok := CheckSaveZip(psarc); !ok {
-		s.ChannelMessageSend(m.ChannelID, resp)
-		return
-	}
 
 	uparc, err := zip.OpenReader(uzn)
 	if err != nil {
