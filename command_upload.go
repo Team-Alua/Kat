@@ -4,17 +4,20 @@ package main
 import (
 	"github.com/bwmarrin/discordgo"
 	"archive/zip"
-	"os"
+//	"os"
 	"fmt"
 	"errors"
 	"strings"
+	"path"
+	"net/url"
 )
 
 
 func CheckSaveZip(zippath string) error {
 	archive, err := zip.OpenReader(zippath)
 	if err != nil {
-		return errors.New("There was an issue opening up the update zip file.")
+		fmt.Println(err)
+		return errors.New("There was an issue opening up the uploaded zip file.")
 	}
 	defer archive.Close()
 
@@ -101,6 +104,7 @@ func CheckAndDownloadAttachments(ma []*discordgo.MessageAttachment, authorId str
 			errMsg := fmt.Sprintf("Failed to download %s.", m.Filename)
 			errs = append(errs, errMsg)
 		} else if err = CheckSaveZip(zn); err != nil {
+			fmt.Println(err)
 			errMsg := fmt.Sprintf("%s : %s.", m.Filename, err.Error())
 			errs = append(errs, errMsg)
 		}
@@ -113,14 +117,30 @@ func CheckAndDownloadAttachments(ma []*discordgo.MessageAttachment, authorId str
 	}
 
 	if (len(errs) > 0) {
+		success = false
 		errs = append(errs, fmt.Sprintf("Downloaded %d out of %d zips.", downloaded, len(ma)))
 	}
 
 	return errs, success
 }
 
-
 func DoUpload(s *discordgo.Session, m *discordgo.MessageCreate) bool {
+	// Parse message for links
+	// Should only have links otherwise ignore
+	links := strings.Fields(m.Content)
+	for _ , link := range links {
+		u, err := url.ParseRequestURI(link)
+		// Only want valid links
+		if err != nil {
+			return false
+		}
+
+		am := &discordgo.MessageAttachment{}
+		am.ID = path.Base(path.Dir(u.Path))
+		am.Filename = path.Base(u.Path)
+		am.URL = link
+		m.Attachments = append(m.Attachments, am)
+	}
 	// Ignore
 	if len(m.Attachments) == 0 {
 		return false

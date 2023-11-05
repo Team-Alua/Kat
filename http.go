@@ -3,6 +3,7 @@ import (
 	"io"
 	"os"
 	"net/http"
+	"errors"
 )
 // https://golangcode.com/download-a-file-from-a-url/
 // DownloadFile will download a url to a local file. It's efficient because it will
@@ -16,6 +17,11 @@ func DownloadFile(filepath string, url string) error {
 	}
 
 	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return errors.New("There was an issue with the provided url.")
+	}
+
 
 	// Create the file
 	out, err := os.Create(filepath)
