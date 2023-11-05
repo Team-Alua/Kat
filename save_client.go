@@ -3,16 +3,9 @@ import (
 	"bufio"
 	"encoding/json"
 	"net"
-	"fmt"
 	"time"
 )
 
-type SaveClient struct {
-	ip string
-	port string
-	reader *bufio.Reader
-	conn net.Conn
-}
 
 func NewSaveClient(ip, port string) *SaveClient {
 	return &SaveClient{ip: ip, port:port}
@@ -28,7 +21,12 @@ func (sc *SaveClient) Connect() (string, bool) {
 	return "", true
 }
 
-func (sc *SaveClient) Send(wb []byte) error {
+func (sc *SaveClient) Send(req *SaveClientRequest) error {
+	wb, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+	wb = append(wb, byte('\n'))
 	o := 0
 	l := len(wb)
 	for o < l {
@@ -41,15 +39,10 @@ func (sc *SaveClient) Send(wb []byte) error {
 	return nil
 }
 
-type SaveServerResponse  struct {
-	ResponseType string `json:"ResponseType"`
-	Code string `json:"code"`
-	Json string `json:"json"`
-}
-
 func (sc *SaveClient) Dump(saveName string, dumpFolder string) (string, bool) {
-	request := fmt.Sprintf(`{"RequestType": "rtDumpSave", "sourceSaveName": "%s","targetFolder": "%s", "dumpOnly": []}` + "\n", saveName, dumpFolder)
-	if err := sc.Send([]byte(request)); err != nil {
+	dcr := DumpClientRequest{SaveName: saveName, TargetFolder: dumpFolder, SelectOnly: make([]string, 0)}
+	request := SaveClientRequest{RequestType: "rtDumpSave", Dump: &dcr}
+	if err := sc.Send(&request); err != nil {
 		return "Failed to send dump command", false
 	}
 
@@ -67,8 +60,9 @@ func (sc *SaveClient) Dump(saveName string, dumpFolder string) (string, bool) {
 }
 
 func (sc *SaveClient) Update(saveName string, updateFolder string) (string, bool) {
-	request := fmt.Sprintf(`{"RequestType": "rtUpdateSave", "targetSaveName": "%s","sourceFolder": "%s", "selectOnly": []}` + "\n", saveName, updateFolder)
-	if err := sc.Send([]byte(request)); err != nil {
+	ucr := UpdateClientRequest{SaveName: saveName, SourceFolder: updateFolder, SelectOnly: make([]string, 0)}
+	request := SaveClientRequest{RequestType: "rtUpdateSave", Update: &ucr}
+	if err := sc.Send(&request); err != nil {
 		return "Failed to send update command", false
 	}
 
@@ -85,19 +79,12 @@ func (sc *SaveClient) Update(saveName string, updateFolder string) (string, bool
 	return "", true
 }
 
-type SaveListEntry struct {
-	Kind string `json:"kind"`
-	Path string `json:"path"`
-	Size uint64 `json:"size"`
-	Mode uint64 `json:"mode"`
-	Uid  int64 `json:"uid"`
-	Gid  int64 `json:"gid"`
-}
 
 func (sc *SaveClient) List(saveName string) ([]*SaveListEntry, string, bool) {
 	var listEntries []*SaveListEntry
-	request := fmt.Sprintf(`{"RequestType": "rtListSaveFiles", "listTargetSaveName": "%s"}` + "\n", saveName)
-	if err := sc.Send([]byte(request)); err != nil {
+	lcr := ListClientRequest{SaveName: saveName}
+	request := SaveClientRequest{RequestType: "rtUpdateSave", List: &lcr}
+	if err := sc.Send(&request); err != nil {
 		return listEntries, "Failed to send list command", false
 	}
 	line, err := sc.reader.ReadSlice(byte('\n'))
