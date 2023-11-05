@@ -51,7 +51,10 @@ func CommandHandler(req <-chan ClientRequest, resp chan<- string) {
 		} else if m.Content == "update" {
 			DoUpdate(s,m,pszip)
 		} else if m.Content == "end" {
+			s.ChannelMessageSend(m.ChannelID, "Enjoy.")
 			break
+		} else if (strings.HasPrefix(m.Content, "resign")) {
+			DoResign(s, m, pszip)
 		} else if DoUpload(s,m) {
 			RebuildUploadList(m.Author.ID, &uploads)
 		}

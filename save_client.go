@@ -80,6 +80,26 @@ func (sc *SaveClient) Update(saveName string, updateFolder string) (string, bool
 }
 
 
+func (sc *SaveClient) Resign(saveName string, accountId uint64) (string, bool) {
+	rcr := ResignClientRequest{SaveName: saveName, AccountId: accountId}
+	request := SaveClientRequest{RequestType: "rtResignSave", Resign: &rcr}
+	if err := sc.Send(&request); err != nil {
+		return "Failed to send update command", false
+	}
+
+	line, err := sc.reader.ReadSlice(byte('\n'))
+	if err != nil {
+		return "Failed to resign save", false
+	}
+
+	data :=	SaveServerResponse{}
+	json.Unmarshal(line, &data)
+	if data.ResponseType == "srInvalid" {
+		return data.Code, false
+	}
+	return "", true
+}
+
 func (sc *SaveClient) List(saveName string) ([]*SaveListEntry, string, bool) {
 	var listEntries []*SaveListEntry
 	lcr := ListClientRequest{SaveName: saveName}
