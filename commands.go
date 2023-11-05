@@ -46,14 +46,15 @@ func CommandHandler(req <-chan ClientRequest, resp chan<- string) {
 		if len(uploads) > 0 {
 			pszip = uploads[len(uploads) - 1]
 		}
-		if m.Content == "dump" {
+		msg := strings.ToLower(m.Content)
+		if msg == "dump" {
 			DoDump(s,m,pszip)
-		} else if m.Content == "update" {
+		} else if msg == "update" {
 			DoUpdate(s,m,pszip)
-		} else if m.Content == "end" {
+		} else if msg == "end" {
 			s.ChannelMessageSend(m.ChannelID, "Enjoy.")
 			break
-		} else if (strings.HasPrefix(m.Content, "resign")) {
+		} else if (strings.HasPrefix(msg, "resign")) {
 			DoResign(s, m, pszip)
 		} else if DoUpload(s,m) {
 			RebuildUploadList(m.Author.ID, &uploads)

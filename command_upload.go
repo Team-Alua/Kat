@@ -4,7 +4,7 @@ package main
 import (
 	"github.com/bwmarrin/discordgo"
 	"archive/zip"
-//	"os"
+	"os"
 	"fmt"
 	"errors"
 	"strings"

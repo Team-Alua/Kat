@@ -191,7 +191,6 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 		return
 	}
-	m.Content = strings.ToLower(m.Content)
 	// Every message sent will go to another goroutine that will handle
 	// the stateful ness of this
 	requests <- NewClientRequest(s,m)
