@@ -9,6 +9,11 @@ import (
 	"archive/zip"
 )
 
+
+func GetUpdateAttachmentName(ma *discordgo.MessageAttachment, authorId string) string {
+	return authorId + "_" + ma.ID + "_update.zip"
+}
+
 func CheckUpdateAttachments(ma []*discordgo.MessageAttachment) (string, bool) {
 	if len(ma) != 1 {
 		return "Please upload a single zip.", false
@@ -23,8 +28,7 @@ func CheckUpdateAttachments(ma []*discordgo.MessageAttachment) (string, bool) {
 
 func DownloadUpdateAttachments(m *discordgo.MessageCreate) (string, bool) {
 	ma := m.Attachments[0]
-	zn := m.Author.ID + "_" + ma.ID + ".zip"
-
+	zn := GetUpdateAttachmentName(ma, m.Author.ID)
 	if err := DownloadFile(zn, ma.URL); err != nil {
 		fmt.Println(err)
 		return fmt.Sprintf("Failed to download %s.", ma.Filename), false
@@ -49,8 +53,8 @@ func DoUpdate(s *discordgo.Session, m *discordgo.MessageCreate, pzn string) {
 		s.ChannelMessageSend(m.ChannelID, resp)
 		return
 	}
+	uzn := GetUpdateAttachmentName(m.Attachments[0], m.Author.ID)
 
-	uzn := m.Author.ID + "_update.zip" 
 	// Clean up zip files
 	defer os.Remove(uzn)
 
