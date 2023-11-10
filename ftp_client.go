@@ -7,6 +7,7 @@ import (
 	"time"
 	"io"
 	"path/filepath"
+	"fmt"
 )
 
 type FtpClient struct {
@@ -180,10 +181,29 @@ func (c *FtpClient) ZipDump(archive *zip.Writer, dumpFolder string) error {
 	return fError
 }
 
+func (c *FtpClient) DeleteFolder(path string) {
+	c.conn.ChangeDir(filepath.Dir(path))
+	c.conn.RemoveDir(filepath.Base(path))
+}
+
 func (c *FtpClient) DeleteStage(saveName string) {
 	c.conn.Delete("/data/" + saveName)
 	c.conn.Delete("/data/" + saveName + ".bin")
-	c.conn.RemoveDirRecur("/data/" + saveName + "_stage")
+	stageFolder := "/data/" + saveName + "_stage"
+	walker := c.conn.Walk(stageFolder)
+	defer c.DeleteFolder(stageFolder)
+	for walker.Next() {
+		if walker.Err() != nil {
+			fmt.Println("Failed to walk", walker.Path())
+			break
+		}
+
+		if walker.Stat().Type == ftp.EntryTypeFile {
+			c.conn.Delete(walker.Path())
+		} else if walker.Stat().Type == ftp.EntryTypeFolder {
+			defer c.DeleteFolder(walker.Path())
+		} 
+	}
 }
 
 func (c *FtpClient) Kill() bool {
