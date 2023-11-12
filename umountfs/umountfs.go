@@ -4,7 +4,11 @@ import (
 	"github.com/blang/vfs/mountfs"
 	"github.com/blang/vfs"
 	"os"
+	"errors"
 )
+
+
+// TODO: Write custom Mounter that allows proper unmounting
 
 type UmountFS struct {
 	mfs *mountfs.MountFS
@@ -28,6 +32,18 @@ func (um UmountFS) Mount(mount vfs.Filesystem, path string) error {
 		um.mounts[path] = mount
 	}
 	return err
+}
+
+func (um UmountFS) Unmount(path string) error {
+	if m, ok := um.mounts[path]; ok {
+		if err := m.(Umounter).Unmount(); err != nil {
+			return err
+		}
+		delete(um.mounts, path)
+		// It's stuck here but it's useless so not a big deal
+		return nil
+	}	
+	return errors.New("Operation not permitted")
 }
 
 func (um UmountFS) UnmountAll() error {

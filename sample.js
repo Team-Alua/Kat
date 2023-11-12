@@ -6,7 +6,7 @@
 // fs.mkdir(path)
 // fs.readdir(path) => []string
 // fs.mount(src, dest, {"MountType": string, "ReadOnly": bool}) => mh
-// fs.umount(mh)
+// fs.umount(dest)
 // fs.read(fh, byteAmount)
 // fs.readline(fh) => string
 // fs.write(fh, buffer)

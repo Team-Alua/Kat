@@ -15,6 +15,7 @@ function walker(root) {
 }
 
 fs.mount("/local/abc.zip", "/mnt1", {"MountType": "zipfs", "ReadOnly": true})
+fs.umount("/mnt1")
 // discord.uploadFile("data0001", "application/octet-stream", fh)
 // fs.close(fh)
 walker("/")
