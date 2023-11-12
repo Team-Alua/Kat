@@ -59,6 +59,19 @@ func Create(f vfs.File, size int64) (ZipFS, error) {
 	return fs, nil
 }
 
+func (f ZipFS) addFile(name string, dir bool) {
+	root := "/"
+	for _, path := range strings.Split(name, "/") {
+		root += path
+		if root[1:] == name {
+			break
+		}
+		f.fm[root] = &fileInfo{name: root, dir: true, size: 0}
+		root += "/"
+	}
+	f.fm["/" + name] = &fileInfo{name: name, dir: dir, size: 0}
+}
+
 func (f ZipFS) buildTree() {
 	for k := range f.fm {
 	    delete(f.fm, k)
@@ -90,6 +103,7 @@ func (f ZipFS) buildTree() {
 }
 
 func (f ZipFS) Mkdir(name string, perm os.FileMode) error {
+	f.addFile(name, true)
 	return nil
 }
 
@@ -99,13 +113,14 @@ func (f ZipFS) PathSeparator() uint8 {
 
 func (f ZipFS) OpenFile(name string, flag int, perm os.FileMode) (vfs.File, error) {
 	// Remove leading /
-	name = name[1:]
+	name = path.Clean(name[1:])
 	if (flag & os.O_WRONLY == os.O_WRONLY) {
 		// Use writer
 		w, err := f.w.Create(name)
 		if err != nil {
 			return nil, err
 		}
+		f.addFile(name, false)
 		return File{w: w}, nil
 	} else if (flag & os.O_RDONLY == os.O_RDONLY) {
 		// Use reader
@@ -131,11 +146,25 @@ func (f ZipFS) Rename(oldpath, newpath string) error {
 
 func (f ZipFS) Stat(name string) (filesystem.FileInfo, error) {
 	name = path.Clean(name)
-	file, err := findFile(f.r, name)
-	if err != nil {
-		return nil, err
+
+	// Root directory
+	if name == "/" {
+		return &fileInfo{name: "/", dir: true, size:0}
 	}
-	return file.FileInfo(), nil
+
+	if f.w != nil {
+		if fi, ok := f.fm[name]; ok {
+			return fi, nil
+		}
+	} else {
+		file, err := findFile(f.r, name)
+		if err != nil {
+			return nil, err
+		}
+		return file.FileInfo(), nil
+	}
+	return nil, ErrNotExist
+
 }
 
 func (f ZipFS) Lstat(name string) (os.FileInfo, error) {
