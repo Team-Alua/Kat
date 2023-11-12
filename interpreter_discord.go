@@ -46,15 +46,22 @@ func (rw *DiscordReadWriter) Read() *discordgo.MessageCreate {
 
 func (i *Interpreter) LoadDiscordBuiltins() {
 	vm := i.vm
+	dis, err := vm.New(vm.Get("Object"))
+	if err != nil {
+		panic(err)
+	}
+	vm.Set("discord", dis)
 
-	vm.Set("receive", func(call goja.FunctionCall) goja.Value {
+
+	dis.Set("getMessage", func(call goja.FunctionCall) goja.Value {
 		return i.Receive(call)
 	});
 
-	vm.Set("send", func(data string) goja.Value {
+	dis.Set("sendMessage", func(data string) goja.Value {
 		return i.Send(data)
 	});
-	vm.Set("sendFile", func(name string, contentType string, r io.Reader) goja.Value {
+
+	dis.Set("uploadFile", func(name string, contentType string, r io.Reader) goja.Value {
 		return i.SendFile(name, contentType, r)
 	});
 	

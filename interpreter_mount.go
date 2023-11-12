@@ -5,6 +5,7 @@ import (
 	"github.com/blang/vfs"
 	"github.com/Team-Alua/kat/zipfs"
 	"github.com/Team-Alua/kat/ftpfs"
+	"github.com/Team-Alua/kat/umountfs"
 	"os"
 )
 
@@ -75,6 +76,17 @@ func (i *Interpreter) Mount(fc goja.FunctionCall) goja.Value {
 }
 
 func (i *Interpreter) Umount(fc goja.FunctionCall) goja.Value {
+	if len(fc.Arguments) < 1 {
+		panic("Must have at least 1 argument.")
+	}
+	var um umountfs.Umounter
+	if err := i.vm.ExportTo(fc.Argument(0), &um); err != nil {
+		panic(err)
+	}
+
+	if err := um.Unmount(); err != nil {
+		panic(err)
+	}
 	return i.vm.ToValue(nil)
 }
 
