@@ -59,7 +59,13 @@ func Create(f vfs.File, size int64) (ZipFS, error) {
 	return fs, nil
 }
 
-func (f ZipFS) addFile(name string, dir bool) {
+func (f ZipFS) addFile(name string, dir bool) error {
+	if fi, ok := f.fm["/" + name]; ok {
+		if fi.IsDir() != dir {
+			return ErrNotPerm
+		}
+	}
+
 	root := "/"
 	for _, path := range strings.Split(name, "/") {
 		root += path
@@ -70,6 +76,8 @@ func (f ZipFS) addFile(name string, dir bool) {
 		root += "/"
 	}
 	f.fm["/" + name] = &fileInfo{name: name, dir: dir, size: 0}
+
+	return nil
 }
 
 func (f ZipFS) buildTree() {
@@ -103,8 +111,8 @@ func (f ZipFS) buildTree() {
 }
 
 func (f ZipFS) Mkdir(name string, perm os.FileMode) error {
-	f.addFile(name, true)
-	return nil
+	name = path.Clean(name[1:])
+	return f.addFile(name, true)
 }
 
 func (f ZipFS) PathSeparator() uint8 {
@@ -124,6 +132,9 @@ func (f ZipFS) OpenFile(name string, flag int, perm os.FileMode) (vfs.File, erro
 	name = path.Clean(name[1:])
 
 	if (flag & os.O_WRONLY == os.O_WRONLY) {
+		if f.w == nil {
+			return nil, ErrNotPerm
+		}
 		// Use writer
 		w, err := f.w.Create(name)
 		if err != nil {
@@ -132,6 +143,9 @@ func (f ZipFS) OpenFile(name string, flag int, perm os.FileMode) (vfs.File, erro
 		f.addFile(name, false)
 		return File{w: w}, nil
 	} else if (flag & os.O_RDONLY == os.O_RDONLY) {
+		if f.r == nil {
+			return nil, ErrNotPerm
+		}
 		// Use reader
 		rc, err := f.r.Open(name)
 		if err != nil {
