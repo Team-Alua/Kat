@@ -53,7 +53,7 @@ func RequestHandler(ch <-chan ClientRequest) {
 	for {
 		select {
 		case cr := <-ch:
-			id := cr.Message.Author.ID
+			id := cr.Message.ChannelID + "_" + cr.Message.Author.ID
 
 			if _, ok := states[id]; !ok {
 				states[id] = make(chan ClientRequest, 10)

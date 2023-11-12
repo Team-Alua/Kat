@@ -46,5 +46,5 @@ func InterpreterLoop(req <-chan ClientRequest, resp chan<- string, s *discordgo.
 		}
 		break;
 	}
-	resp <- m.Author.ID
+	resp <- m.ChannelID + "_" + m.Author.ID
 }
