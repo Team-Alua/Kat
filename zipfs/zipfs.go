@@ -149,7 +149,7 @@ func (f ZipFS) Stat(name string) (filesystem.FileInfo, error) {
 
 	// Root directory
 	if name == "/" {
-		return &fileInfo{name: "/", dir: true, size:0}
+		return &fileInfo{name: "/", dir: true, size:0}, nil
 	}
 
 	if f.w != nil {

@@ -3,7 +3,38 @@ package tcpfs
 import (
 	"os"
 	"net"
+	"time"
+	filesystem "io/fs"
 )
+type fileInfo struct {
+	name string
+	dir bool
+	size int64
+}
+
+func (f fileInfo) ModTime() time.Time {
+	return time.Time{}
+}
+
+func (f fileInfo) Name() string {
+	return f.name
+}
+
+func (f fileInfo) Size() int64 {
+	return f.size
+}
+
+func (f fileInfo) Mode() filesystem.FileMode {
+	return 0
+}
+
+func (f fileInfo) IsDir() bool {
+	return f.dir
+}
+
+func (f fileInfo) Sys() any {
+	return nil
+}
 
 type FileReadWriter struct {
 	conn net.Conn

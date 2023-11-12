@@ -4,11 +4,16 @@ import (
 	"github.com/dop251/goja"
 	"github.com/blang/vfs"
 	"os"
-	"fmt"
 	"io/fs"
 	"io"
 	"bufio"
 )
+
+type JSFileInfo struct {
+	Name string
+	Size int64
+	Dir bool
+}
 
 func (i *Interpreter) LoadFsIntoInstance(f *goja.Object) {
 	vm := i.vm
@@ -25,10 +30,12 @@ func (i *Interpreter) LoadFsIntoInstance(f *goja.Object) {
 		if err != nil {
 			panic(err)
 		}
+		out := make([]JSFileInfo, 0)
 		for _, f := range files {
-			fmt.Println(f.Name())
+			of := JSFileInfo{Name: f.Name(), Size: f.Size(), Dir: f.IsDir()}
+			out = append(out, of)
 		}
-		return vm.ToValue(files)
+		return vm.ToValue(out)
 	})
 
 	f.Set("mount", func(fc goja.FunctionCall) goja.Value {

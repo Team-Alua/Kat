@@ -39,7 +39,7 @@ func (f TcpFS) Rename(oldpath, newpath string) error {
 }
 
 func (f TcpFS) Stat(name string) (os.FileInfo, error) {
-	return nil, nil
+	return &fileInfo{name: name, dir: false, size: 0}, nil
 }
 
 func (f TcpFS) Lstat(name string) (os.FileInfo, error) {
@@ -47,7 +47,7 @@ func (f TcpFS) Lstat(name string) (os.FileInfo, error) {
 }
 
 func (f TcpFS) ReadDir(path string) ([]os.FileInfo, error) {
-	return nil, nil
+	return make([]os.FileInfo, 0), nil
 }
 
 func (f TcpFS) Mkdir(name string, perm os.FileMode) error {
