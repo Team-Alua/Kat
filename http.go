@@ -8,8 +8,7 @@ import (
 // https://golangcode.com/download-a-file-from-a-url/
 // DownloadFile will download a url to a local file. It's efficient because it will
 // write as it downloads and not load the whole file into memory.
-func DownloadFile(filepath string, url string) error {
-
+func DownloadToWriter(w io.Writer, url string) error {
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
@@ -21,15 +20,17 @@ func DownloadFile(filepath string, url string) error {
 		return errors.New("There was an issue with the provided url.")
 	}
 
+	// Write the body to file
+	_, err = io.Copy(w, resp.Body)
+	return err
+}
 
+func DownloadFile(path string, url string) error {
 	// Create the file
-	out, err := os.Create(filepath)
+	out, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
-
-	// Write the body to file
-	_, err = io.Copy(out, resp.Body)
-	return err
+	return DownloadToWriter(out, url)
 }

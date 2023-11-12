@@ -1,68 +1,50 @@
 package main
 
 import (
-	"os"
 	"fmt"
-	"io/ioutil"
 	"strings"
+	"io/ioutil"
+	"github.com/bwmarrin/discordgo"
+	"github.com/dop251/goja"
+	"github.com/Team-Alua/kat/userfs"
 )
-func RebuildUploadList(authorId string, uploads *[]string) {
-	files, err := ioutil.ReadDir(".")
-    if err != nil {
-        fmt.Println(err)
-		return
-    }
 
-	// Clear slice
-	*uploads = nil
-	*uploads = make([]string, 0)
-    for _, file := range files {
-		if file.IsDir() {
-			continue
-		}
-		fn := file.Name()
-		if strings.HasPrefix(fn, authorId) && strings.HasSuffix(fn, "zip") {
-			*uploads = append(*uploads, fn)
-		} 
-    }
+func getScript(fn string) (string, error) {
+	body, err := ioutil.ReadFile(fn + ".js")
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
 }
 
-
-func CommandHandler(req <-chan ClientRequest, resp chan<- string) {
-	var uploads []string = make([]string, 0)
-	var clientId string
-	firstTime := true
-	for {
-		cr := <- req
-		s := cr.Session
-		m := cr.Message
-		clientId = m.Author.ID
-		if firstTime {
-			firstTime = false
-			RebuildUploadList(m.Author.ID, &uploads)
-		}
-		fmt.Println("Received request", m.Content)
-		pszip := ""
-		if len(uploads) > 0 {
-			pszip = uploads[len(uploads) - 1]
-		}
-		msg := strings.ToLower(m.Content)
-		if msg == "dump" {
-			DoDump(s,m,pszip)
-		} else if msg == "update" {
-			DoUpdate(s,m,pszip)
-		} else if msg == "end" {
-			s.ChannelMessageSend(m.ChannelID, "Enjoy.")
-			break
-		} else if (strings.HasPrefix(msg, "resign")) {
-			DoResign(s, m, pszip)
-		} else if DoUpload(s,m) {
-			RebuildUploadList(m.Author.ID, &uploads)
-		}
-		resp <- clientId
+func InterpreterLoop(req <-chan ClientRequest, resp chan<- string, s *discordgo.Session, m *discordgo.MessageCreate) {
+	rw := NewDiscordReadWriter(s, req, m.ChannelID)
+	fn := "default"
+	mfs, err := userfs.Create(m.Author.ID)
+	if err != nil {
+		rw.WriteString(err.Error())
+		return
 	}
-	for _, upload := range uploads {
-		os.Remove(upload)
+	for true {
+		code, err := getScript(fn)
+		if err != nil {
+			code = fmt.Sprintf(`
+				send("There was an error opening %s");
+			`, fn)
+		}
+		interp := NewInterpreter(rw, mfs)
+		ie := interp.Run(fn, code)
+		
+		if gie, ok := ie.(*goja.InterruptedError); ok{
+			cmd := gie.Value().(string)
+			if strings.HasPrefix(cmd, "run") {
+				fn = strings.Trim(cmd[3:], " ")
+				continue
+			}
+		} else if ie != nil {
+			rw.WriteString(ie.Error())
+		}
+		break;
 	}
-	resp <- "end:" + clientId	
+	resp <- m.Author.ID
 }

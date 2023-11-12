@@ -7,6 +7,7 @@ import (
 	"time"
 	"io"
 	"path/filepath"
+	"os"
 	"fmt"
 )
 
@@ -179,6 +180,40 @@ func (c *FtpClient) ZipDump(archive *zip.Writer, dumpFolder string) error {
 		}
 	}
 	return fError
+}
+func (c *FtpClient) Dump(localFolder string, remoteFolder string) error {
+	walker := c.conn.Walk(remoteFolder)
+	var fError error
+	for walker.Next() {
+		rp := walker.Path()
+		fp, _ := filepath.Rel(remoteFolder, walker.Path())
+		fn := filepath.Join(localFolder, fp)
+		if walker.Stat().Type == ftp.EntryTypeFolder {
+			os.MkdirAll(fn, 0777)
+			continue
+		}
+		w, err := os.Create(fn)
+		if err != nil {
+			fError = err
+			break
+		}
+		r, err := c.conn.Retr(rp)
+		if err != nil {
+			fError = err
+			break
+		}
+		_, err = io.Copy(w, r)
+		r.Close()
+		if err != nil {
+			fError = err
+		}
+	}
+	if fError != nil {
+		os.RemoveAll(localFolder)
+		return fError
+	}
+
+	return nil
 }
 
 func (c *FtpClient) DeleteFolder(path string) {

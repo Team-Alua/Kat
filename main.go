@@ -49,52 +49,35 @@ func init() {
 func RequestHandler(ch <-chan ClientRequest) {
 	respChan := make(chan string)
 	states := make(map[string]chan ClientRequest)
-	queue := make(map[string][]ClientRequest)
 	active := make(map[string]bool)
 	for {
 		select {
 		case cr := <-ch:
-			var reqChan chan ClientRequest
 			id := cr.Message.Author.ID
-			// Check if user has a state or not
-			if _, ok := states[id]; !ok {
-				states[id] = make(chan ClientRequest)
-			}
-			// Get the ClientRequest channel
-			reqChan = states[id]
 
-			if _, ok := queue[id]; !ok {
-				queue[id] = make([]ClientRequest, 0)
+			if _, ok := states[id]; !ok {
+				states[id] = make(chan ClientRequest, 10)
 			}
+
 			// Give user their own goroutine
 			if _, ok := active[id]; !ok {
-				active[id] = true
-				go CommandHandler(states[id], respChan)
-				reqChan <- cr
-			} else if active[id] {
-				// Add to user queue
-				queue[id] = append(queue[id], cr)
-			} else {
-				// Send user request
-				reqChan <- cr
+				active[id] = false
+				// Move all this into a new object
+				crc := states[id]
+				rc := respChan
+				s := cr.Session
+				c := cr.Message
+				go InterpreterLoop(crc, rc, s, c)
+			}
+			select {
+			case states[id] <- cr:
+			default:
+				// Do nothing
 			}
 		case id := <-respChan:
-			if strings.HasPrefix(id, "end:") {
-				id = id[len("end:"):]
-				delete(active, id)
-				continue
-			}
-			uq := queue[id]
-			// It's only active if
-			// we are adding new messages
-			// from the queue
-			active[id] = len(uq) > 0
-			if len(uq) > 0 {
-				reqChan := states[id]
-				cr := uq[0]
-				queue[id] = append(uq[1:])
-				reqChan <- cr
-			}
+			delete(active, id)
+			close(states[id])
+			delete(states, id)
 		}
 	}
 
@@ -125,6 +108,7 @@ func main() {
 	}
 
 	StartRequestListener()
+	// Restrict access to
 
 	// Wait here until CTRL-C or other term signal is received.
 	log.Printf("Bot is now running.")
@@ -179,7 +163,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			if threadChannel == nil {
 				threadChannel = StartBotInteraction(s,m)
 				if threadChannel == nil {
-					s.ChannelMessageSend(m.ChannelID, "I could not create a new thread. Likely a permission issue. Heading back to sleep.")
+					s.ChannelMessageSend(m.ChannelID, "I could not create a new thread. Please make sure all thread permissions are enabled for me. Heading back to sleep.")
 				} else {
 					s.ChannelMessageSend(m.ChannelID, "Woken up")
 				}
