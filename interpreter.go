@@ -38,7 +38,6 @@ func (i *Interpreter) Run(name, code string) error {
 func (i *Interpreter) LoadBuiltins() {
 	i.LoadFsBuiltins()
 	i.LoadDiscordBuiltins()
-	i.LoadSaveBuiltins()
 	i.LoadHttpBuiltins()
 	i.LoadConsoleBuiltins()
 	vm := i.vm
