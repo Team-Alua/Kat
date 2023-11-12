@@ -112,8 +112,17 @@ func (f ZipFS) PathSeparator() uint8 {
 }
 
 func (f ZipFS) OpenFile(name string, flag int, perm os.FileMode) (vfs.File, error) {
+	// Check if file is a directory
+	// It should not be
+	if fi, err := f.Stat(name); err == nil {
+		if fi.IsDir() {
+			return nil, ErrNotPerm
+		}
+	}
+
 	// Remove leading /
 	name = path.Clean(name[1:])
+
 	if (flag & os.O_WRONLY == os.O_WRONLY) {
 		// Use writer
 		w, err := f.w.Create(name)
@@ -151,19 +160,15 @@ func (f ZipFS) Stat(name string) (filesystem.FileInfo, error) {
 	if name == "/" {
 		return &fileInfo{name: "/", dir: true, size:0}, nil
 	}
-
-	if f.w != nil {
-		if fi, ok := f.fm[name]; ok {
-			return fi, nil
-		}
-	} else {
-		file, err := findFile(f.r, name)
-		if err != nil {
-			return nil, err
-		}
-		return file.FileInfo(), nil
+	if fi, ok := f.fm[name]; ok {
+		return fi, nil
 	}
-	return nil, ErrNotExist
+
+	file, err := findFile(f.r, name)
+	if err != nil {
+		return nil, err
+	}
+	return file.FileInfo(), nil
 
 }
 

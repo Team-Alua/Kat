@@ -72,7 +72,6 @@ func (i *Interpreter) Mount(fc goja.FunctionCall) goja.Value {
 	if err != nil {
 		panic(err)
 	}
-	i.fs.Mkdir(target, 0777)
 	if err := i.fs.Mount(vfs, target); err != nil {
 		panic(err)
 	}

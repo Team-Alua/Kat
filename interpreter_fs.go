@@ -234,6 +234,13 @@ func (i *Interpreter) Mkdir(fc goja.FunctionCall) goja.Value {
 	if !ok {
 		fm = 0777
 	}
+
+	// Check if it already exists
+	// because it may be a mount
+	if f, err := i.fs.Stat(fp); err == nil {
+		panic("File might already exists " + f.Name());
+	}
+
 	if err := i.fs.Mkdir(fp, fm); err != nil {
 		panic(err)
 	}
