@@ -3,13 +3,13 @@ function walker(root) {
 	while (dirs.length) {
 		let root = dirs.shift()
 		let data = fs.readdir(root)
-		for (const {Name, Dir} of data) {
+		for (const {Name, Dir, Size} of data) {
 			let p = root + Name
 			if (Dir) {
 				p += "/"
 				dirs.push(p)
 			}
-			console.log(p, Dir)
+			console.log(p, Dir, Size)
 		}
 	}
 }

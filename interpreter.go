@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/dop251/goja"
+	"fmt"
 	"github.com/Team-Alua/kat/umountfs"
 )
 
@@ -24,10 +25,10 @@ func (i *Interpreter) Run(name, code string) error {
 	vm := i.vm
 	i.LoadBuiltins()
 	defer func() {
-//		if err := recover(); err != nil {
-//			fmt.Println("Error", err);
-//		}
-//		i.fs.UnmountAll()
+		if err := recover(); err != nil {
+			fmt.Println("Error", err);
+		}
+		i.fs.UnmountAll()
 		// Cleanup fs
 	}()
 	_, err := vm.RunScript(name, code)
