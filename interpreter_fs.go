@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"io"
+	"bufio"
 )
 
 func (i *Interpreter) LoadFsIntoInstance(f *goja.Object) {
@@ -46,12 +47,20 @@ func (i *Interpreter) LoadFsIntoInstance(f *goja.Object) {
 		return i.WriteFile(fc)
 	})
 
+	f.Set("writeString", func(fc goja.FunctionCall) goja.Value {
+		return i.WriteFileString(fc)
+	})
+
 	f.Set("copy", func(fc goja.FunctionCall) goja.Value {
 		return i.CopyFile(fc)
 	})
 
 	f.Set("close", func(fc goja.FunctionCall) goja.Value {
 		return i.CloseFile(fc)
+	})
+
+	f.Set("readline", func(fc goja.FunctionCall) goja.Value {
+		return i.ReadFileLine(fc)
 	})
 
 }
@@ -125,7 +134,6 @@ func (i *Interpreter) ReadFile(fc goja.FunctionCall) goja.Value {
 }
 
 
-// fs.write(fh, ArrayBuffer) => written
 func (i *Interpreter) WriteFile(fc goja.FunctionCall) goja.Value {
 	if len(fc.Arguments) < 2 {
 		panic("Invalid argument count.")
@@ -142,6 +150,27 @@ func (i *Interpreter) WriteFile(fc goja.FunctionCall) goja.Value {
 		panic(err)
 	}
 	n, err := w.Write(p)
+	if err != nil {
+		panic(err)
+	}
+	return i.vm.ToValue(n)
+}
+func (i *Interpreter) WriteFileString(fc goja.FunctionCall) goja.Value {
+	if len(fc.Arguments) < 2 {
+		panic("Invalid argument count.")
+	}
+
+	var w io.Writer
+	vm := i.vm
+	if err := vm.ExportTo(fc.Argument(0), &w); err != nil {
+		panic(err)
+	}
+
+	var p string
+	if err := vm.ExportTo(fc.Argument(1), &p); err != nil {
+		panic(err)
+	}
+	n, err := w.Write([]byte(p))
 	if err != nil {
 		panic(err)
 	}
@@ -204,4 +233,22 @@ func (i *Interpreter) Mkdir(fc goja.FunctionCall) goja.Value {
 	return i.vm.ToValue(nil)
 }
 
+func (i *Interpreter) ReadFileLine(fc goja.FunctionCall) goja.Value {
+	if len(fc.Arguments) < 1 {
+		panic("Invalid argument count.")
+	}
 
+	var f vfs.File
+	vm := i.vm
+	if err := vm.ExportTo(fc.Argument(0), &f); err != nil {
+		panic(err)
+	}
+	scanner := bufio.NewScanner(f)
+
+	scanner.Scan()
+	b := scanner.Bytes()
+	if err := scanner.Err(); err != nil {
+		panic(err)
+	}
+	return i.vm.ToValue(string(b))
+}

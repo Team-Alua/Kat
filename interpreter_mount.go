@@ -5,6 +5,7 @@ import (
 	"github.com/blang/vfs"
 	"github.com/Team-Alua/kat/zipfs"
 	"github.com/Team-Alua/kat/ftpfs"
+	"github.com/Team-Alua/kat/tcpfs"
 	"github.com/Team-Alua/kat/umountfs"
 	"os"
 )
@@ -38,6 +39,9 @@ func (i *Interpreter) chooseMount(source string, mo MountOptions) (vfs.Filesyste
 	}
 	if mt == "ftpfs" {
 		return ftpfs.Create("10.0.0.5", "2121", source)
+	}
+	if mt == "tcpfs" {
+		return tcpfs.Create(source)
 	}
 	return nil, nil
 
