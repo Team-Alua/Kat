@@ -30,7 +30,7 @@ func (um UmountFS) Mount(mount vfs.Filesystem, path string) error {
 	return err
 }
 
-func (um UmountFS) Unmount() error {
+func (um UmountFS) UnmountAll() error {
 	for _, mount := range um.mounts {
 		if m, ok := mount.(Umounter); ok {
 			m.Unmount()

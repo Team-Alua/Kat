@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/dop251/goja"
 	"github.com/Team-Alua/kat/umountfs"
-	"fmt"
 )
 
 
@@ -28,7 +27,7 @@ func (i *Interpreter) Run(name, code string) error {
 //		if err := recover(); err != nil {
 //			fmt.Println("Error", err);
 //		}
-		i.fs.Unmount()
+//		i.fs.UnmountAll()
 		// Cleanup fs
 	}()
 	_, err := vm.RunScript(name, code)
@@ -40,16 +39,10 @@ func (i *Interpreter) LoadBuiltins() {
 	i.LoadDiscordBuiltins()
 	i.LoadSaveBuiltins()
 	i.LoadHttpBuiltins()
+	i.LoadConsoleBuiltins()
 	vm := i.vm
 
 
-	vm.Set("log", func(call goja.FunctionCall) goja.Value {
-		for _, arg := range call.Arguments {
-			fmt.Printf("%s", arg)
-		}
-		fmt.Printf("\n")
-		return i.vm.ToValue(nil)
-	});
 
 	vm.Set("run", func(script string) goja.Value {
 		vm.Interrupt("run " + script);
