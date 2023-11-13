@@ -75,7 +75,6 @@ func (f FileReadWriter) Sync() error {
 
 
 func (f FileReadWriter) Close() error {
-	f.conn = nil
-	return nil
+	return f.conn.Close()
 }
 

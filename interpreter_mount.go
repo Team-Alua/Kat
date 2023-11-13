@@ -40,7 +40,7 @@ func (i *Interpreter) chooseMount(source string, mo MountOptions) (vfs.Filesyste
 		return ftpfs.Create("10.0.0.5", "2121", source)
 	}
 	if mt == "tcpfs" {
-		return tcpfs.Create(source)
+		return tcpfs.Create()
 	}
 	return nil, nil
 

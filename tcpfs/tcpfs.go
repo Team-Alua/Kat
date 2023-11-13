@@ -7,16 +7,12 @@ import (
 	"os"
 )
 
+// TODO: Automatically clean up file handles on close
 type TcpFS struct {
-	conn net.Conn
 }
 
-func Create(source string) (TcpFS, error) {
-	conn, err := net.DialTimeout("tcp", source, 1 * time.Second)
-	if err != nil {
-		return TcpFS{}, err
-	}
-	return TcpFS{conn}, nil
+func Create() (TcpFS, error) {
+	return TcpFS{}, nil
 }
 
 func (f TcpFS) PathSeparator() uint8 {
@@ -25,7 +21,10 @@ func (f TcpFS) PathSeparator() uint8 {
 
 
 func (f TcpFS) OpenFile(name string, flag int, perm os.FileMode) (vfs.File, error) {
-	conn := f.conn
+	conn, err := net.DialTimeout("tcp", name[1:], 1 * time.Second)
+	if err != nil {
+		return FileReadWriter{}, err
+	}
 	return FileReadWriter{conn}, nil
 }
 
@@ -55,6 +54,6 @@ func (f TcpFS) Mkdir(name string, perm os.FileMode) error {
 }
 
 func (f TcpFS) Unmount() error {
-	return f.conn.Close()
+	return nil
 }
 
