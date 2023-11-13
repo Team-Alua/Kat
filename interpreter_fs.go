@@ -205,20 +205,33 @@ func (i *Interpreter) CopyFile(fc goja.FunctionCall) goja.Value {
 	if len(fc.Arguments) < 2 {
 		panic("Invalid argument count.")
 	}
-	vm := i.vm
 
-	var w io.Writer
-	if err := vm.ExportTo(fc.Argument(0), &w); err != nil {
-		panic(err)
+
+	src, ok := fc.Argument(0).Export().(string);
+	if !ok {
+		panic("First argument must be string.")
 	}
 	
-	var r io.Reader
-	if err := vm.ExportTo(fc.Argument(1), &r); err != nil {
+	dst, ok := fc.Argument(1).Export().(string);
+	if !ok {
+		panic("Second argument must be string.")
+	}
+	r, err := i.fs.OpenFile(src, os.O_RDONLY, 0777)
+	if err != nil {
 		panic(err)
 	}
 
-	_, err := io.Copy(w,r)
+	w, err := i.fs.OpenFile(dst, os.O_WRONLY | os.O_CREATE | os.O_TRUNC , 0777)
 	if err != nil {
+		r.Close()
+		panic(err)
+	}
+
+	_, err = io.Copy(w,r)
+	w.Close()
+	r.Close()
+	if err != nil {
+		i.fs.Remove(dst)
 		panic(err)
 	}	 
 	return i.vm.ToValue(nil)

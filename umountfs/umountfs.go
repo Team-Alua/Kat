@@ -71,4 +71,7 @@ func (um UmountFS) Stat(name string) (os.FileInfo, error) {
 	return um.mfs.Stat(name)
 }
 
+func (um UmountFS) Remove(name string) error {
+	return um.mfs.Remove(name)
+}
 

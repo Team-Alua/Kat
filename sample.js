@@ -11,6 +11,6 @@
 // fs.readline(fh) => string
 // fs.write(fh, buffer)
 // fs.writeString(fh, "")
-// fs.copy(w, r)
+// fs.copy(src, dest)
 // fs.close(fh)
 // download(path, url)
