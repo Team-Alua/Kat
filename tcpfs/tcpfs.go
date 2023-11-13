@@ -5,6 +5,7 @@ import (
 	"time"
 	"net"
 	"os"
+	"strings"
 )
 
 // TODO: Automatically clean up file handles on close
@@ -21,7 +22,7 @@ func (f TcpFS) PathSeparator() uint8 {
 
 
 func (f TcpFS) OpenFile(name string, flag int, perm os.FileMode) (vfs.File, error) {
-	conn, err := net.DialTimeout("tcp", name[1:], 1 * time.Second)
+	conn, err := net.DialTimeout("tcp", strings.Replace(name[1:], "/", ":", 1), 1 * time.Second)
 	if err != nil {
 		return FileReadWriter{}, err
 	}
