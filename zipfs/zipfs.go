@@ -174,16 +174,20 @@ func (f ZipFS) Stat(name string) (filesystem.FileInfo, error) {
 	if name == "/" {
 		return &fileInfo{name: "/", dir: true, size:0}, nil
 	}
+
 	if fi, ok := f.fm[name]; ok {
 		return fi, nil
 	}
 
-	file, err := findFile(f.r, name)
-	if err != nil {
-		return nil, err
-	}
-	return file.FileInfo(), nil
 
+	if f.r != nil {
+		file, err := findFile(f.r, name)
+		if err != nil {
+			return nil, err
+		}
+		return file.FileInfo(), nil
+	}
+	return &fileInfo{}, ErrNotExist
 }
 
 func (f ZipFS) Lstat(name string) (os.FileInfo, error) {

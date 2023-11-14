@@ -7,6 +7,8 @@ import (
 	"io/fs"
 	"io"
 	"bufio"
+	"path"
+	"path/filepath"
 )
 
 type JSFileInfo struct {
@@ -42,9 +44,13 @@ func (i *Interpreter) LoadFsIntoInstance(f *goja.Object) {
 		return i.Mount(fc)
 	});
 
-	f.Set("umount", func(fc goja.FunctionCall) goja.Value {
+	f.Set("unmount", func(fc goja.FunctionCall) goja.Value {
 		return i.Umount(fc)
 	});
+
+	f.Set("copyDir",  func(fc goja.FunctionCall) goja.Value {
+		return i.CopyDir(fc)
+	})
 
 	f.Set("read", func(fc goja.FunctionCall) goja.Value {
 		return i.ReadFile(fc)
@@ -200,6 +206,27 @@ func (i *Interpreter) CloseFile(fc goja.FunctionCall) goja.Value {
 	return i.vm.ToValue(nil)
 }
 
+func (i *Interpreter) copyFile(src, dst string, perm os.FileMode) {
+	r, err := i.fs.OpenFile(src, os.O_RDONLY, perm)
+	if err != nil {
+		panic(err)
+	}
+
+	w, err := i.fs.OpenFile(dst, os.O_WRONLY | os.O_CREATE | os.O_TRUNC , perm)
+	if err != nil {
+		r.Close()
+		panic(err)
+	}
+
+	_, err = io.Copy(w,r)
+	w.Close()
+	r.Close()
+	if err != nil {
+		i.fs.Remove(dst)
+		panic(err)
+	}	 
+}
+
 func (i *Interpreter) CopyFile(fc goja.FunctionCall) goja.Value {
 
 	if len(fc.Arguments) < 2 {
@@ -216,24 +243,64 @@ func (i *Interpreter) CopyFile(fc goja.FunctionCall) goja.Value {
 	if !ok {
 		panic("Second argument must be string.")
 	}
-	r, err := i.fs.OpenFile(src, os.O_RDONLY, 0777)
-	if err != nil {
-		panic(err)
+	i.copyFile(src,dst, 0777)
+	return i.vm.ToValue(nil)
+}
+
+func (i *Interpreter) CopyDir(fc goja.FunctionCall) goja.Value {
+	if len(fc.Arguments) < 2 {
+		panic("Invalid argument count.")
 	}
 
-	w, err := i.fs.OpenFile(dst, os.O_WRONLY | os.O_CREATE | os.O_TRUNC , 0777)
-	if err != nil {
-		r.Close()
-		panic(err)
+	// Both source and destination files should exists
+	src, ok := fc.Argument(0).Export().(string);
+	if !ok {
+		panic("First argument must be string.")
+	}
+	
+	dst, ok := fc.Argument(1).Export().(string);
+	if !ok {
+		panic("Second argument must be string.")
 	}
 
-	_, err = io.Copy(w,r)
-	w.Close()
-	r.Close()
-	if err != nil {
-		i.fs.Remove(dst)
-		panic(err)
-	}	 
+	fs := i.fs
+
+	// src and dst must be a directory
+	for _, dir := range []string{src, dst} {
+		if fi, err := fs.Stat(dir); err != nil {
+			panic(err)
+		} else if !fi.IsDir() {
+			panic("All arguments must be a directory.")
+		}
+	}
+	
+	q := make([]string, 0)
+	q = append(q, src)
+	for len(q) > 0 {
+		root := q[0]
+		q = q[1:]
+
+		files, err := fs.ReadDir(root);
+		if err != nil {
+			panic(err)
+		}
+
+		rel, err := filepath.Rel(src, root)	
+		if err != nil {
+			panic(err)
+		}
+		droot := path.Join(dst, rel)
+		for _, file := range files {
+			fp := path.Join(root, file.Name())
+			tfp := path.Join(droot, file.Name())
+			if file.IsDir() {
+				q = append(q, fp)
+				fs.Mkdir(tfp, 0777)
+			} else {
+				i.copyFile(fp, tfp, 0777)	
+			}
+		}
+	}
 	return i.vm.ToValue(nil)
 }
 
@@ -279,3 +346,4 @@ func (i *Interpreter) ReadFileLine(fc goja.FunctionCall) goja.Value {
 	}
 	return i.vm.ToValue(string(b))
 }
+

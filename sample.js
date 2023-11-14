@@ -12,5 +12,6 @@
 // fs.write(fh, buffer)
 // fs.writeString(fh, "")
 // fs.copy(src, dest)
+// fs.copyDir(src, dest)
 // fs.close(fh)
 // download(path, url)
