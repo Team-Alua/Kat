@@ -7,6 +7,7 @@ import (
 	"time"
 	"path"
 	"io"
+	"path/filepath"
 )
 
 type FtpFS struct {
@@ -65,9 +66,17 @@ func (f FtpFS) OpenFile(name string, flag int, perm os.FileMode) (vfs.File, erro
 }
 
 func (f FtpFS) Remove(name string) error {
-	// Currently noop
-	// ftp.Delete for file
-	// ftp.ChangeDir + ftp.RemoveDir for folder
+	fi, err := f.Stat(name);
+	if err != nil {
+		return err
+	}
+
+	if fi.IsDir() {
+		f.conn.ChangeDir(filepath.Dir(name))
+		f.conn.RemoveDir(filepath.Base(name))
+	} else {
+		f.conn.Delete(name)
+	}
 	return nil
 
 }
