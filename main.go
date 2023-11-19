@@ -8,34 +8,18 @@ import (
 	"strconv"
 	"fmt"
 	"strings"
-	"net/http"
-	"time"
 	"github.com/bwmarrin/discordgo"
+	"github.com/Team-Alua/kat/discord"
 )
 
 // Variables used for command line parameters
 var (
-	httpClient = getHttpClient()
 	Token string
 )
 
-type ClientRequest struct {
-	Session *discordgo.Session
-	Message *discordgo.MessageCreate
-}
-
-func NewClientRequest(s *discordgo.Session, m *discordgo.MessageCreate) ClientRequest {
-	return ClientRequest{Session: s, Message: m}
-}
 
 
-var requests chan ClientRequest
-
-func getHttpClient() *http.Client {
-	return &http.Client{
-		Timeout: 30 * time.Second,
-	}
-}
+var requests chan discord.ClientRequest
 
 func init() {
 	data, err := os.ReadFile("token")
@@ -46,9 +30,9 @@ func init() {
 }
 
 
-func RequestHandler(ch <-chan ClientRequest) {
+func RequestHandler(ch <-chan discord.ClientRequest) {
 	respChan := make(chan string)
-	states := make(map[string]chan ClientRequest)
+	states := make(map[string]chan discord.ClientRequest)
 	active := make(map[string]bool)
 	for {
 		select {
@@ -56,7 +40,7 @@ func RequestHandler(ch <-chan ClientRequest) {
 			id := cr.Message.ChannelID + "_" + cr.Message.Author.ID
 
 			if _, ok := states[id]; !ok {
-				states[id] = make(chan ClientRequest, 10)
+				states[id] = make(chan discord.ClientRequest, 10)
 			}
 
 			// Give user their own goroutine
@@ -83,7 +67,7 @@ func RequestHandler(ch <-chan ClientRequest) {
 
 }
 func StartRequestListener() {
-	requests = make(chan ClientRequest)
+	requests = make(chan discord.ClientRequest)
 
 	go RequestHandler(requests)
 }
@@ -177,7 +161,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 	// Every message sent will go to another goroutine that will handle
 	// the stateful ness of this
-	requests <- NewClientRequest(s,m)
+	requests <- discord.NewClientRequest(s,m)
 	
 }
 func GetUserThreadChannelName(user *discordgo.User) string {
