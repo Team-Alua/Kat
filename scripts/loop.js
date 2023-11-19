@@ -15,8 +15,16 @@ function walker(root) {
 }
 
 fs.mount("/local/abc.zip", "/mnt1", {"MountType": "zipfs", "ReadOnly": true})
-fs.umount("/mnt1")
-// discord.uploadFile("data0001", "application/octet-stream", fh)
-// fs.close(fh)
-walker("/")
+
+fs.mount("/tmp/abc.zip", "/mnt2", {"MountType": "zipfs", "ReadOnly": false})
+fs.copyDir("/mnt1", "/mnt2")
+fs.unmount("/mnt2")
+
+fs.unmount("/mnt1")
+
+
+let fh = fs.open("/tmp/abc.zip")
+discord.uploadFile("upload.zip", "application/zip", fh)
+fs.close(fh)
+// walker("/")
 
