@@ -12,7 +12,7 @@ import (
 )
 
 func getScript(fn string) (string, error) {
-	body, err := ioutil.ReadFile(fn + ".js")
+	body, err := ioutil.ReadFile("scripts/" + fn + ".js")
 	if err != nil {
 		return "", err
 	}
