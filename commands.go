@@ -5,8 +5,10 @@ import (
 	"strings"
 	"io/ioutil"
 	"github.com/bwmarrin/discordgo"
-	"github.com/dop251/goja"
 	"github.com/Team-Alua/kat/userfs"
+	"github.com/Team-Alua/kat/interpreter"
+	"github.com/Team-Alua/kat/discord"
+	"github.com/dop251/goja"
 )
 
 func getScript(fn string) (string, error) {
@@ -17,8 +19,8 @@ func getScript(fn string) (string, error) {
 	return string(body), nil
 }
 
-func InterpreterLoop(req <-chan ClientRequest, resp chan<- string, s *discordgo.Session, m *discordgo.MessageCreate) {
-	rw := NewDiscordReadWriter(s, req, m.ChannelID)
+func InterpreterLoop(req <-chan discord.ClientRequest, resp chan<- string, s *discordgo.Session, m *discordgo.MessageCreate) {
+	rw := discord.NewReadWriter(s, req, m.ChannelID)
 	fn := "default"
 	mfs, err := userfs.Create(m.Author.ID)
 	if err != nil {
@@ -32,7 +34,7 @@ func InterpreterLoop(req <-chan ClientRequest, resp chan<- string, s *discordgo.
 				send("There was an error opening %s");
 			`, fn)
 		}
-		interp := NewInterpreter(rw, mfs)
+		interp := interpreter.NewInterpreter(rw, mfs)
 		ie := interp.Run(fn, code)
 		
 		if gie, ok := ie.(*goja.InterruptedError); ok{

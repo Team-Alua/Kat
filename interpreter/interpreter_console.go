@@ -1,4 +1,4 @@
-package main
+package interpreter
 
 import (
 	"github.com/dop251/goja"
