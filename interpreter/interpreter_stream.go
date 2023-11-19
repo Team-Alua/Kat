@@ -34,15 +34,23 @@ func (i *Interpreter) LoadStreamBuiltins() {
 
 		call.This.Set("read", func(icall goja.FunctionCall) goja.Value {
 			// int32
-			c := icall.Argument(0).ToInteger();
+			c := icall.Argument(0).ToInteger()
 
 			buf := make([]byte, c)
-			n, err := reader.Read(buf);
+			n, err := reader.Read(buf)
 			if err != nil {
 				panic(err)
 			}
 			buf = buf[0:n]
 			return vm.ToValue(buf)
+		})
+		
+		call.This.Set("readline", func(icall goja.FunctionCall) goja.Value {
+			buf, err := reader.ReadBytes('\n')
+			if err != nil {
+				panic(err)
+			}
+			return vm.ToValue(string(buf))
 		})
 
 		return nil
