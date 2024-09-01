@@ -1,217 +1,217 @@
 package zipfs
 
 import (
-	"archive/zip"
-	"path"
-	"os"
-	"github.com/blang/vfs"
-	"errors"
-	filesystem "io/fs"
-	"strings"
+    "archive/zip"
+    "path"
+    "os"
+    "github.com/blang/vfs"
+    "errors"
+    filesystem "io/fs"
+    "strings"
 )
 var (
-	// ErrReadOnly is returned if the file is read-only and write operations are disabled.
-	ErrReadOnly = errors.New("File is read-only")
-	// ErrWriteOnly is returned if the file is write-only and read operations are disabled.
-	ErrWriteOnly = errors.New("File is write-only")
-	// ErrIsDirectory is returned if the file under operation is not a regular file but a directory.
-	ErrIsDirectory = errors.New("Is directory")
+    // ErrReadOnly is returned if the file is read-only and write operations are disabled.
+    ErrReadOnly = errors.New("File is read-only")
+    // ErrWriteOnly is returned if the file is write-only and read operations are disabled.
+    ErrWriteOnly = errors.New("File is write-only")
+    // ErrIsDirectory is returned if the file under operation is not a regular file but a directory.
+    ErrIsDirectory = errors.New("Is directory")
 
-	ErrNotPerm = errors.New("Operation not permitted")
+    ErrNotPerm = errors.New("Operation not permitted")
 
-	ErrNotExist = errors.New("File does not exist")
+    ErrNotExist = errors.New("File does not exist")
 )
 
 func findFile(archive *zip.Reader, name string) (*zip.File, error) {
-	for _, file := range archive.File {
-		if file.Name == name {
-			return file, nil
-		}
-	}
-	return nil, ErrNotExist
+    for _, file := range archive.File {
+        if file.Name == name {
+            return file, nil
+        }
+    }
+    return nil, ErrNotExist
 }
 
 
 type ZipFS struct {
-	f vfs.File
-	r *zip.Reader
-	w *zip.Writer
-	fm map[string]*fileInfo
+    f vfs.File
+    r *zip.Reader
+    w *zip.Writer
+    fm map[string]*fileInfo
 }
 
 func Create(f vfs.File, size int64) (ZipFS, error) {
-	var r *zip.Reader
-	var w *zip.Writer
-	fm := make(map[string]*fileInfo)
-	if (size == 0) {
-		w = zip.NewWriter(f)
-	} else {
-		nr, err := zip.NewReader(f, size)
-		if err != nil {
-			return ZipFS{}, err
-		}
-		r = nr
-	}
-	fs := ZipFS{f, r, w, fm}
-	if (size != 0) {
-		fs.buildTree()
-	}
-	return fs, nil
+    var r *zip.Reader
+    var w *zip.Writer
+    fm := make(map[string]*fileInfo)
+    if (size == 0) {
+        w = zip.NewWriter(f)
+    } else {
+        nr, err := zip.NewReader(f, size)
+        if err != nil {
+            return ZipFS{}, err
+        }
+        r = nr
+    }
+    fs := ZipFS{f, r, w, fm}
+    if (size != 0) {
+        fs.buildTree()
+    }
+    return fs, nil
 }
 
 func (f ZipFS) addFile(name string, dir bool) error {
-	if fi, ok := f.fm["/" + name]; ok {
-		if fi.IsDir() != dir {
-			return ErrNotPerm
-		}
-	}
+    if fi, ok := f.fm["/" + name]; ok {
+        if fi.IsDir() != dir {
+            return ErrNotPerm
+        }
+    }
 
-	root := "/"
-	for _, path := range strings.Split(name, "/") {
-		root += path
-		if root[1:] == name {
-			break
-		}
-		f.fm[root] = &fileInfo{name: root, dir: true, size: 0}
-		root += "/"
-	}
-	f.fm["/" + name] = &fileInfo{name: name, dir: dir, size: 0}
+    root := "/"
+    for _, path := range strings.Split(name, "/") {
+        root += path
+        if root[1:] == name {
+            break
+        }
+        f.fm[root] = &fileInfo{name: root, dir: true, size: 0}
+        root += "/"
+    }
+    f.fm["/" + name] = &fileInfo{name: name, dir: dir, size: 0}
 
-	return nil
+    return nil
 }
 
 func (f ZipFS) buildTree() {
-	for k := range f.fm {
-	    delete(f.fm, k)
-	}
-	// PS4/SAVEDATA
-	// gets turned into
-	// /PS4
-	// /PS4/SAVEDATA
+    for k := range f.fm {
+        delete(f.fm, k)
+    }
+    // PS4/SAVEDATA
+    // gets turned into
+    // /PS4
+    // /PS4/SAVEDATA
 
-	for _, file := range f.r.File {
-		root := "/"
-		for _, path := range strings.Split(file.Name, "/") {
-			root += path
-			if root[1:] == file.Name {
-				break
-			}
-			f.fm[root] = &fileInfo{name: root, dir: true, size: 0}
-			root += "/"
-		}
-		name := file.Name
-		if file.FileInfo().IsDir() {
-			name = name[0:len(file.Name) - 1]
-		}
-		fi := &fileInfo{name: "/" + name, dir: file.FileInfo().IsDir()}
-		fi.size = file.FileInfo().Size()
-		f.fm["/" + name] = fi
-		
-	}
+    for _, file := range f.r.File {
+        root := "/"
+        for _, path := range strings.Split(file.Name, "/") {
+            root += path
+            if root[1:] == file.Name {
+                break
+            }
+            f.fm[root] = &fileInfo{name: root, dir: true, size: 0}
+            root += "/"
+        }
+        name := file.Name
+        if file.FileInfo().IsDir() {
+            name = name[0:len(file.Name) - 1]
+        }
+        fi := &fileInfo{name: "/" + name, dir: file.FileInfo().IsDir()}
+        fi.size = file.FileInfo().Size()
+        f.fm["/" + name] = fi
+        
+    }
 }
 
 func (f ZipFS) Mkdir(name string, perm os.FileMode) error {
-	name = path.Clean(name[1:])
-	return f.addFile(name, true)
+    name = path.Clean(name[1:])
+    return f.addFile(name, true)
 }
 
 func (f ZipFS) PathSeparator() uint8 {
-	return '/';
+    return '/';
 }
 
 func (f ZipFS) OpenFile(name string, flag int, perm os.FileMode) (vfs.File, error) {
-	// Check if file is a directory
-	// It should not be
-	if fi, err := f.Stat(name); err == nil {
-		if fi.IsDir() {
-			return nil, ErrNotPerm
-		}
-	}
+    // Check if file is a directory
+    // It should not be
+    if fi, err := f.Stat(name); err == nil {
+        if fi.IsDir() {
+            return nil, ErrNotPerm
+        }
+    }
 
-	// Remove leading /
-	name = path.Clean(name[1:])
+    // Remove leading /
+    name = path.Clean(name[1:])
 
-	if (flag & os.O_WRONLY == os.O_WRONLY) {
-		if f.w == nil {
-			return nil, ErrNotPerm
-		}
-		// Use writer
-		w, err := f.w.Create(name)
-		if err != nil {
-			return nil, err
-		}
-		f.addFile(name, false)
-		return File{w: w}, nil
-	} else if (flag & os.O_RDONLY == os.O_RDONLY) {
-		if f.r == nil {
-			return nil, ErrNotPerm
-		}
-		// Use reader
-		rc, err := f.r.Open(name)
-		if err != nil {
-			return nil, err
-		}
-		return File{rc: rc}, nil
-	}
+    if (flag & os.O_WRONLY == os.O_WRONLY) {
+        if f.w == nil {
+            return nil, ErrNotPerm
+        }
+        // Use writer
+        w, err := f.w.Create(name)
+        if err != nil {
+            return nil, err
+        }
+        f.addFile(name, false)
+        return File{w: w}, nil
+    } else if (flag & os.O_RDONLY == os.O_RDONLY) {
+        if f.r == nil {
+            return nil, ErrNotPerm
+        }
+        // Use reader
+        rc, err := f.r.Open(name)
+        if err != nil {
+            return nil, err
+        }
+        return File{rc: rc}, nil
+    }
 
-	// Not supported
-	return nil, ErrNotPerm
+    // Not supported
+    return nil, ErrNotPerm
 }
 
 func (f ZipFS) Remove(name string) error {
-	return ErrNotPerm
+    return ErrNotPerm
 }
 
 func (f ZipFS) Rename(oldpath, newpath string) error {
-	return ErrNotPerm
+    return ErrNotPerm
 
 }
 
 func (f ZipFS) Stat(name string) (filesystem.FileInfo, error) {
-	name = path.Clean(name)
+    name = path.Clean(name)
 
-	// Root directory
-	if name == "/" {
-		return &fileInfo{name: "/", dir: true, size:0}, nil
-	}
+    // Root directory
+    if name == "/" {
+        return &fileInfo{name: "/", dir: true, size:0}, nil
+    }
 
-	if fi, ok := f.fm[name]; ok {
-		return fi, nil
-	}
+    if fi, ok := f.fm[name]; ok {
+        return fi, nil
+    }
 
 
-	if f.r != nil {
-		file, err := findFile(f.r, name)
-		if err != nil {
-			return nil, err
-		}
-		return file.FileInfo(), nil
-	}
-	return &fileInfo{}, ErrNotExist
+    if f.r != nil {
+        file, err := findFile(f.r, name)
+        if err != nil {
+            return nil, err
+        }
+        return file.FileInfo(), nil
+    }
+    return &fileInfo{}, ErrNotExist
 }
 
 func (f ZipFS) Lstat(name string) (os.FileInfo, error) {
-	return f.Stat(name)
+    return f.Stat(name)
 }
 
 func (f ZipFS) ReadDir(fp string) (entries []filesystem.FileInfo, err error) {
-	entries = make([]filesystem.FileInfo, 0)
-	for _, file := range f.fm {
-		if path.Dir(file.Name()) != fp {
-			continue
-		}
-		// Return only the names
-		name := path.Base(file.Name())
-		dir := file.IsDir()
-		size := file.Size()
-		entries = append(entries, fileInfo{name, dir, size})
-	}
-	return 
+    entries = make([]filesystem.FileInfo, 0)
+    for _, file := range f.fm {
+        if path.Dir(file.Name()) != fp {
+            continue
+        }
+        // Return only the names
+        name := path.Base(file.Name())
+        dir := file.IsDir()
+        size := file.Size()
+        entries = append(entries, fileInfo{name, dir, size})
+    }
+    return 
 }
 
 func (f ZipFS) Unmount() error {
-	if f.w != nil {
-		f.w.Close()
-	}
-	return f.f.Close()
+    if f.w != nil {
+        f.w.Close()
+    }
+    return f.f.Close()
 }

@@ -1,36 +1,41 @@
 package userfs
 
 import (
-	"os"
-	"path/filepath"
-	"github.com/blang/vfs"
-	"github.com/blang/vfs/memfs"
-	"github.com/blang/vfs/prefixfs"
-	"github.com/Team-Alua/kat/umountfs"
+    "os"
+    "path/filepath"
+    "github.com/blang/vfs"
+    "github.com/blang/vfs/memfs"
+    "github.com/blang/vfs/prefixfs"
+    "github.com/Team-Alua/kat/umountfs"
 )
 
 func Create(authorId string) (*umountfs.UmountFS, error) {
-	wd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
+    wd, err := os.Getwd()
+    if err != nil {
+        return nil, err
+    }
 
-	gDir := filepath.Join(wd, "global")
-	os.Mkdir(gDir, 0777)
-	globalFs := prefixfs.Create(vfs.OS(), gDir)
-	
-	rootFs := memfs.Create()
-	rootFs.Mkdir("/tmp", 0777)
+    gDir := filepath.Join(wd, "global")
+    os.Mkdir(gDir, 0777)
+    globalFs := prefixfs.Create(vfs.OS(), gDir)
+    
+    rootFs := memfs.Create()
+    rootFs.Mkdir("/tmp", 0777)
 
-	mfs := umountfs.Create(rootFs)
-	mfs.Mount(globalFs, "/global")
+    mfs := umountfs.Create(rootFs)
+    mfs.Mount(globalFs, "/global")
 
-	// /zips => read only discord uploads 
-	ad := filepath.Join(wd, authorId)
-	os.Mkdir(ad, 0777)
+    // /zips => read only discord uploads 
+    ad := filepath.Join(wd, authorId)
+    os.Mkdir(ad, 0777)
 
-	authorFs := prefixfs.Create(vfs.OS(), ad)
-	mfs.Mount(authorFs, "/local")
-	return mfs, nil
+    authorFs := prefixfs.Create(vfs.OS(), ad)
+    mfs.Mount(authorFs, "/local")
+
+    ps4d := "/tmp/ps4/"
+    ps4Fs := prefixfs.Create(vfs.OS(), ps4d)
+    mfs.Mount(ps4Fs, "/ps4")
+
+    return mfs, nil
 
 }

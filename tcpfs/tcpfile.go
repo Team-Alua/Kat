@@ -1,80 +1,80 @@
 package tcpfs
 
 import (
-	"os"
-	"net"
-	"time"
-	filesystem "io/fs"
+    "os"
+    "net"
+    "time"
+    filesystem "io/fs"
 )
 type fileInfo struct {
-	name string
-	dir bool
-	size int64
+    name string
+    dir bool
+    size int64
 }
 
 func (f fileInfo) ModTime() time.Time {
-	return time.Time{}
+    return time.Time{}
 }
 
 func (f fileInfo) Name() string {
-	return f.name
+    return f.name
 }
 
 func (f fileInfo) Size() int64 {
-	return f.size
+    return f.size
 }
 
 func (f fileInfo) Mode() filesystem.FileMode {
-	return 0
+    return 0
 }
 
 func (f fileInfo) IsDir() bool {
-	return f.dir
+    return f.dir
 }
 
 func (f fileInfo) Sys() any {
-	return nil
+    return nil
 }
 
 type FileReadWriter struct {
-	conn net.Conn
+    conn net.Conn
 }
 
 func (f FileReadWriter) Name() string {
-	return ""
+    return ""
 }
 
 func (f FileReadWriter) Stat() (os.FileInfo, error) {
-	return nil, nil
+    return nil, nil
 }
 
 func (f FileReadWriter) Read(p []byte) (int, error) {
-	return f.conn.Read(p)
+    return f.conn.Read(p)
 }
 
 func (f FileReadWriter) ReadAt(p []byte, off int64) (n int, err error) {
-	return 0, nil
+    return 0, nil
 }
 
 func (f FileReadWriter) Write(p []byte) (int, error) {
-	return f.conn.Write(p)
+    return f.conn.Write(p)
 
 }
 
 func (f FileReadWriter) Truncate(size int64) (err error) {
-	return nil
+    return nil
 }
 
 func (f FileReadWriter) Seek(offset int64, whence int) (n int64, err error) {
-	return 0, nil
+    return 0, nil
 }
 
 func (f FileReadWriter) Sync() error {
-	return nil
+    return nil
 }
 
 
 func (f FileReadWriter) Close() error {
-	return f.conn.Close()
+    return f.conn.Close()
 }
 
