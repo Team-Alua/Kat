@@ -65,21 +65,21 @@
         writePointers["data"] += 0x10
 
         if (typeof value === "boolean") {
-            view.setUint8(chunkOffset + 0x4, 0xC, true)
-            view.setUint8(chunkOffset + 0x8, value ? 1 : 0, true)
+            view.setInt32(chunkOffset + 0x4, 0xC, true)
+            view.setInt32(chunkOffset + 0x8, value ? 1 : 0, true)
         } else if (value instanceof Uint8Array) {
             let stringOffset = writePointers["strings"]
             writeByteArray(view, stringOffset, value)
             writePointers["strings"] += value.byteLength + 1
             let typeValue = (stringOffset << 4) + 0xB
-            view.setInt32(chunkOffset + 4, typeValue, true)
+            view.setUint32(chunkOffset + 4, typeValue, true)
             view.setInt32(chunkOffset + 8, value.byteLength + 1, true)
         } else if (typeof value === "string") {
             let stringOffset = writePointers["strings"]
             writeUtf8String(view, stringOffset, value)
             writePointers["strings"] += value.length + 1
             let typeValue = (stringOffset << 4) + 0xB
-            view.setInt32(chunkOffset + 4, typeValue, true)
+            view.setUint32(chunkOffset + 4, typeValue, true)
             view.setInt32(chunkOffset + 8, value.length + 1, true)
             // Also string
         } else if (Array.isArray(value)) {
@@ -88,16 +88,19 @@
             writeVector(view, vectorOffset, value)
             let typeValue = (vectorOffset << 4) + 0xA
             writePointers["vectors"] += 0x10
-            view.setInt32(chunkOffset + 4, typeValue, true)
+            view.setUint32(chunkOffset + 4, typeValue, true)
             view.setInt32(chunkOffset + 8, 0x10, true)
         } else if (typeof value === "number") {
             // float32
-            view.setInt8(chunkOffset + 4, 0x9)
-            view.setFloat32(chunkOffset + 8, value)
+            view.setInt32(chunkOffset + 4, 0x9, true)
+            view.setFloat32(chunkOffset + 8, value, true)
         } else if (typeof value === "object") {
-            view.setInt8(chunkOffset + 4, 0x8)
+            view.setInt32(chunkOffset + 4, 0x8, true)
             view.setInt32(chunkOffset + 8, Object.keys(value).length, true)
             serializeJson(view, value, writePointers)
+        } else if (typeof value === "bigint") {
+            // null value
+            view.seInt32(chunkOffset + 4, Number(value), true)
         } else {
             throw ("Unknown data type " +  dataType)
         }

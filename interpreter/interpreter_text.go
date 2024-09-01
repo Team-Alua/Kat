@@ -37,6 +37,8 @@ func (i *Interpreter) LoadTextBuiltins() {
         if !utf8.ValidString(str) {
             panic(vm.ToValue("Invalid utf8 string."))
         }
-        return i.vm.ToValue(vm.NewArrayBuffer([]byte(str)))
+        buffer := vm.ToValue(vm.NewArrayBuffer([]byte(str)))
+        arr, _ := vm.New(vm.Get("Uint8Array"), buffer)
+        return arr;
     });
 }
