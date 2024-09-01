@@ -17,7 +17,12 @@
         }
         const textView = new Uint8Array(view.buffer);
         const str = textView.subarray(off, end);
-        return decodeText(str);
+        try {
+            let result = decodeText(str);
+            return result;
+        } catch (e) {}
+
+        return str;
     }
     
     function getVarName(view, chunkOffset) {
@@ -76,7 +81,7 @@
             root[varName] = readVector(view, valueOffset);
         } else if (dataType == TSTRING) {
             let stringLength = view.getInt32(chunkOffset + 0x8, true)
-            root[varName] = getString(view, valueOffset, valueOffset + stringLength)
+            root[varName] = getString(view, valueOffset, valueOffset + stringLength - 1)
         } else if (dataType == TBOOLEAN) {
             root[varName] = view.getUint8(chunkOffset + 0x8) > 0
         } else {
