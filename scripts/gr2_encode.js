@@ -5,8 +5,27 @@
         window.encodeText = function(str) {
             return new TextEncoder().encode(str);
         }
-    }
 
+        window.copyBuffer = function(v1, offset, v2) {
+            const length = v2.byteLength;
+            for (let i = 0; i < length; i++) {
+                v1[offset + i] = v2[i];
+            }
+        }
+
+        window.fnv1a32 = function(strValue) {
+            const OFFSET_BASIS = 0x811c9dc5;
+            let hash = OFFSET_BASIS;
+            for (let i = 0; i < strValue.length; i++) {
+                hash = hash ^ strValue.charCodeAt(i);
+                // This is necessary because bitwise shifts result in signed 32 bit number.
+                hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+            }
+            // cast it to unsigned 32 bit
+            return hash >>> 0;
+        }
+
+    }
 
     function writeByteArray(view, offset, arr) {
         let iarr = new Uint8Array(view.buffer);
