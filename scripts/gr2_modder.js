@@ -4,6 +4,7 @@
     const GOBACK = 1;
     const SETVALUE = 2;
     const SETREPEATVALUE = 3;
+    const UNSETVALUE = 4;
     function execute(root, steps) {
         let count = steps.length;
         let stack = [];
@@ -54,71 +55,117 @@
         }
         return true;
     }
+    const tableRoot = Symbol('TableRoot');
+
+    function buildSteps(stepTree, steps, patchPath = []) {
+        let storedPatchPath = patchPath; 
+        if (stepTree[tableRoot] === true) {
+            steps.push({
+                type: GOTO,
+                path: Array.from(patchPath)
+            });
+            patchPath = [];
+        }
+
+        let setPairs = []; 
+        let substeps = [];
+        for (const pair of Object.entries(stepTree)) {
+            const [key,value] = pair;
+            if (key === tableRoot) {
+               continue;
+            }
+
+            if (value == null) {
+                substeps.push({
+                    type: UNSETVALUE,
+                    key: key
+                });
+            } else if (value.constructor === Object) {
+                patchPath.push(key);
+                buildSteps(value, steps, patchPath);
+                patchPath.pop();
+            } else {
+                setPairs.push(pair);
+            }
+        }
+        let matches = {};
+        for(let i = 0; i < setPairs.length; i++) {
+            const aPair = setPairs[i];
+            const value = aPair[1];
+            if (typeof value === "boolean" || 
+                typeof value === "string" ||
+                typeof value === "number") {
+                if (matches[value] == null) {
+                    matches[value] = [];
+                }
+                matches[value].push(i);
+            } else {
+                substeps.push({
+                    type: SETVALUE,
+                    key: aPair[0],
+                    value,
+                });
+            }
+        }
+        for (const valueGroups of Object.values(matches)) {
+            let firstIndex = valueGroups[0];
+            let firstPair = setPairs[firstIndex];
+        
+            if (valueGroups.length === 1) {
+                let key = firstPair[0];
+                let value = firstPair[1];
+                substeps.push({
+                    type: SETVALUE,
+                    key,
+                    value,
+                });
+            } else {
+                let groupValue = firstPair[1];
+                substeps.push({
+                    type: SETREPEATVALUE,
+                    keys: valueGroups.map((i) => setPairs[i][0]),
+                    value: groupValue
+                });
+            }
+        }
+        // TODO: Optimize substeps
+        steps.push(...substeps);
+        if (stepTree[tableRoot] === true) {
+            steps.push({
+                type: GOBACK
+            });
+            patchPath = storedPatchPath;
+        }
+    }
 
     function mergeToSteps(json) {
         const steps = [];
-        const roots = {};
+        const root = {};
         const rootValues = {};
         let index = 1;
-        // Find all roots
+        // Convert the list of patches to a tree.
+        // Use special value to denote the root 
+        // of a keyed table
         for (const [key, value] of json) {
-            let newKey = Array.from(key);
-            let rootKey = newKey.pop();
-            let root = newKey.join("\x03");
-            if (roots[root] == null) {
-                rootValues[root] = [];
-                roots[root] = index++;
-            }
-            rootValues[root].push([rootKey,value])
-        }
-        // This is the order we are going to traverse the tree
-        let sortedRoots = Object.keys(roots).sort();
-
-        // TODO: Figure out algorithm to
-        // track common parent between children
-        for (let i = 0; i < sortedRoots.length; i++) {
-            // look for matching keys
-            let root = sortedRoots[i];
-            let sameKeys = {};
-            let values = rootValues[root];
-            for (const valuePair of values) {
-                const [rootKey, value] = valuePair;
-                if (sameKeys[value] == null) {
-                    sameKeys[value] = [];
+            let tempRoot = root;
+            let subroots = key.slice(0, -1);
+            let subkey = key.slice(-1);
+            for (const subroot of subroots) {
+                if (tempRoot[subroot] == null) {
+                    tempRoot[subroot] = {};
+                } else if (tempRoot[subroot].constructor !== Object) {
+                    throw `Cannot access ${key.join('/')} a part of the path is not a table.`;
                 }
-                sameKeys[value].push(valuePair);
+                tempRoot = tempRoot[subroot];
             }
-            let isEmptyRoot = root === "";
-            if (!isEmptyRoot) {
-                steps.push({
-                    step: GOTO,
-                    path: root.split("\x03")
-                })
+            // Only do it for
+            // subrooted tables
+            if (subroots.length >= 0) {
+                tempRoot[tableRoot] = true;
             }
-            for (const [sharedKey, values] of Object.entries(sameKeys)) {
-                if (values.length > 1) {
-                    const keys = values.map(e => e[0]);
-                    steps.push({
-                        type: SETREPEATVALUE,
-                        keys,
-                        value: values[0][1]
-                    });
-
-                } else {
-                    const [key, value] = values[0];
-                    steps.push({
-                        type: SETVALUE,
-                        key,
-                        value
-                    });
-                }
-            }
-            if (!isEmptyRoot) {
-                steps.push({
-                    step: GOBACK
-                })
-            }
+            tempRoot[subkey] = value;
         }
+        buildSteps(root, steps);
         return steps;
     }
     return {execute, mergeToSteps};
