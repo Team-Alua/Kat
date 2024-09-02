@@ -22,7 +22,7 @@
             return result;
         } catch (e) {}
 
-        return str;
+        return new Uint8Array(str);
     }
     
     function getVarName(view, chunkOffset) {

@@ -1,5 +1,6 @@
 (function() {
 
+    'use strict';
     if (typeof window !== "undefined" && !window.encodeText) {
         window.encodeText = function(str) {
             return new TextEncoder().encode(str);
@@ -8,9 +9,8 @@
 
 
     function writeByteArray(view, offset, arr) {
-        for (let i = 0; i < arr.byteLength; i++) {
-            view.setUint8(offset + i, arr[i], true)
-        }
+        let iarr = new Uint8Array(view.buffer);
+        copyBuffer(iarr, offset, arr)
     }
 
     function writeVector(view, offset, vector) {
@@ -19,23 +19,10 @@
         }
     }
 
-    function fnv1a32(strValue) {
-        const OFFSET_BASIS = 0x811c9dc5;
-        let hash = OFFSET_BASIS;
-        for (let i = 0; i < strValue.length; i++) {
-            hash = hash ^ strValue.charCodeAt(i);
-            // This is necessary because bitwise shifts result in signed 32 bit number.
-            hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-        }
-        // cast it to unsigned 32 bit
-        return hash >>> 0;
-    }
-
     function writeUtf8String(view, offset, str) {
         let buffer = encodeText(str);
-        for (let i = 0; i < buffer.byteLength; i++) {
-            view.setUint8(offset + i, buffer[i])
-        }
+        let iarr = new Uint8Array(view.buffer);
+        copyBuffer(iarr, offset, buffer)
     }
 
     function writeVarName(view, varName, writePointers) {
@@ -126,18 +113,8 @@
         }
     }
 
-    function writeAsciiString(view, offset, str, length = -1) {
-        if (length == -1) {
-            length = str.length
-        }
-
-        for (let i = 0; i < length; i++) {
-            view.setUint8(i, str.charCodeAt(offset + i));
-        }
-    }
-
     function fromJsonToSaveBin(json) {
-        const magic = "ggdL\x89\x06\x33\x01"
+        const magic = new Uint8Array([0x67, 0x67, 0x64, 0x4C, 0x89, 0x06, 0x33, 0x01])
         const info = {
             "entries": 0,
             "vectors": 0,
@@ -148,17 +125,16 @@
         totalFileSize += info["stringTotalSize"]
         const buffer = new ArrayBuffer(totalFileSize);
         const view = new DataView(buffer);
-        writeAsciiString(view, 0x0, magic)
-        view.setInt32(0x8, totalFileSize, true)
-        view.setInt32(0xC, info["entries"], true)
-        const section_offsets = {
+        writeByteArray(view, 0x0, magic);
+        view.setInt32(0x8, totalFileSize, true);
+        view.setInt32(0xC, info["entries"], true);
+        const sectionOffsets = {
             "data": 0x10,
             "vectors": 0x10 * (info["entries"] + 1),
             "strings": 0x10 * (info["entries"] + info["vectors"] + 1)
         };
-        const writePointers = JSON.parse(JSON.stringify(section_offsets))
         for (const [key, value] of Object.entries(json)) {
-            serializeChunk(view, key, value, writePointers)
+            serializeChunk(view, key, value, sectionOffsets)
         }
         return buffer;
     }
