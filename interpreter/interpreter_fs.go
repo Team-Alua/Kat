@@ -31,6 +31,10 @@ func (i *Interpreter) LoadFsIntoInstance(f *goja.Object) {
         return i.Mkdir(fc)
     })
 
+    f.Set("remove", func(fc goja.FunctionCall) goja.Value {
+        i.Remove(fc)
+        return i.vm.ToValue(nil)
+    })
 
     f.Set("readdir", func(fc goja.FunctionCall) goja.Value {
         files, err := i.fs.ReadDir(fc.Argument(0).Export().(string))
@@ -128,13 +132,14 @@ func (i *Interpreter) OpenFile(fc goja.FunctionCall) goja.Value {
 }
 
 func (i *Interpreter) Stat(fc goja.FunctionCall) goja.Value {
+    vm := i.vm
     fp, ok := fc.Argument(0).Export().(string);
     if !ok {
-        panic("First argument must be a string.")
+        vm.Interrupt("First argument must be a string.")
     }
     fi, err := i.fs.Stat(fp)  
     if err != nil {
-        panic(err)
+        vm.Interrupt(err)
     }
     return i.vm.ToValue(fi)
 }
@@ -223,16 +228,26 @@ func (i *Interpreter) CloseFile(fc goja.FunctionCall) goja.Value {
     return i.vm.ToValue(nil)
 }
 
+func (i *Interpreter) Remove(fc goja.FunctionCall) {
+    src, _ := fc.Argument(0).Export().(string);
+    if err := i.fs.Remove(src); err != nil {
+        i.vm.Interrupt(err)
+    }
+
+}
+
 func (i *Interpreter) copyFile(src, dst string, perm os.FileMode) {
     r, err := i.fs.OpenFile(src, os.O_RDONLY, perm)
     if err != nil {
-        panic(err)
+        i.vm.Interrupt(err)
+        return
     }
 
     w, err := i.fs.OpenFile(dst, os.O_WRONLY | os.O_CREATE | os.O_TRUNC , perm)
     if err != nil {
         r.Close()
-        panic(err)
+        i.vm.Interrupt(err)
+        return
     }
 
     _, err = io.Copy(w,r)
@@ -240,8 +255,9 @@ func (i *Interpreter) copyFile(src, dst string, perm os.FileMode) {
     r.Close()
     if err != nil {
         i.fs.Remove(dst)
-        panic(err)
-    }    
+        i.vm.Interrupt(err)
+        return
+    }
 }
 
 func (i *Interpreter) CopyFile(fc goja.FunctionCall) goja.Value {

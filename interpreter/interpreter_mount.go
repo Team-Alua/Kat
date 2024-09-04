@@ -43,32 +43,40 @@ func (i *Interpreter) chooseMount(source string, mo MountOptions) (vfs.Filesyste
 }
 
 func (i *Interpreter) Mount(fc goja.FunctionCall) goja.Value {
+    vm := i.vm
     if len(fc.Arguments) < 3 {
-        panic("Must have at least 3 arguments.")
+        vm.Interrupt("Must have at least 3 arguments.")
+        return vm.ToValue(nil)
     }
 
     src, ok1 := fc.Argument(0).Export().(string);
     target, ok2 := fc.Argument(1).Export().(string);
     if !ok1 || !ok2 {
-        panic("Invalid file paths.")
+        vm.Interrupt("Invalid file paths.")
+        return vm.ToValue(nil)
     }
     var opts *MountOptions = &MountOptions{}
     err := i.vm.ExportTo(fc.Argument(2), opts)
     if err != nil {
-        panic(err)
+        vm.Interrupt(err)
+        return vm.ToValue(nil)
     }
 
     if f, err := i.fs.Stat(target); err == nil {
-        panic("File might already exists " + f.Name());
+        vm.Interrupt("File might already exists " + f.Name());
+        return vm.ToValue(nil)
     }
 
 
     vfs, err := i.chooseMount(src, *opts)
     if err != nil {
-        panic(err)
+        vm.Interrupt(err)
+        return vm.ToValue(nil)
     }
+
     if err := i.fs.Mount(vfs, target); err != nil {
-        panic(err)
+        vm.Interrupt(err)
+        return vm.ToValue(nil)
     }
     return i.vm.ToValue(vfs)
 }

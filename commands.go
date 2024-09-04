@@ -1,7 +1,6 @@
 package main
 
 import (
-    "strings"
     "github.com/bwmarrin/discordgo"
     "github.com/Team-Alua/kat/userfs"
     "github.com/Team-Alua/kat/umountfs"
@@ -15,23 +14,13 @@ func InterpreterLoopMain(fn string, fs *umountfs.UmountFS, rw discord.ReadWriter
     for true {
         interp := interpreter.NewInterpreter(rw, fs)
         ie := interp.Run(fn)
-        if gie, ok := ie.(*goja.InterruptedError); ok{
-
-            cmd, ok := gie.Value().(string)
-            if ok {
-                if strings.HasPrefix(cmd, "run") {
-                    fn = strings.Trim(cmd[3:], " ")
-                    continue
-                }
-
-            } else {
-                err := gie.Value().(error)
-                rw.WriteString(err.Error())
-            }
+        if gie, ok := ie.(*goja.InterruptedError); ok {
+            err := gie.Value().(error)
+            rw.WriteString(err.Error())
         } else if ie != nil {
             rw.WriteString(ie.Error())
         }
-        break;
+        break
     }
 
 }

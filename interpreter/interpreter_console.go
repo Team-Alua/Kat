@@ -16,10 +16,12 @@ func (i *Interpreter) LoadConsoleBuiltins() {
     consoleObj.Set("log", func(call goja.FunctionCall) goja.Value {
         li := len(call.Arguments) - 1
         for i, arg := range call.Arguments {
+            obj := arg.ToObject(vm)
+            str, _ := obj.MarshalJSON()
             if li == i {
-                fmt.Printf("%s\n", arg)
+                fmt.Printf("%s\n", str)
             } else {
-                fmt.Printf("%s ", arg)
+                fmt.Printf("%s ", str)
             }
         }
         return i.vm.ToValue(nil)

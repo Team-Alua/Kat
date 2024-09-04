@@ -35,11 +35,7 @@ func (i *Interpreter) Run(name string) error {
     vm := i.vm
     i.LoadBuiltins()
     defer func() {
-    //  if err := recover(); err != nil {
-    //      fmt.Println("Error", err);
-    //  }
         i.fs.UnmountAll()
-        // Cleanup fs
     }()
     code, err := GetScript(name)
     if err != nil {
@@ -62,12 +58,7 @@ func (i *Interpreter) LoadBuiltins() {
 
 
 
-    vm.Set("run", func(script string) goja.Value {
-        vm.Interrupt("run " + script)
-        return vm.ToValue(nil)
-    });
-    
-    vm.Set("load", func(name string) goja.Value {
+    vm.Set("run", func(name string) goja.Value {
         code, err := GetScript(name)
         if err != nil {
             vm.Interrupt(err)
