@@ -351,11 +351,17 @@ func (i *Interpreter) Mkdir(fc goja.FunctionCall) goja.Value {
     // Check if it already exists
     // because it may be a mount
     if f, err := i.fs.Stat(fp); err == nil {
-        panic("File might already exists " + f.Name());
+        if !f.IsDir() {
+            i.vm.Interrupt("File is not a directory " + f.Name());
+        } else {
+            // Already exists and is a directory
+            // so no op
+        }
+        return i.vm.ToValue(nil)
     }
 
     if err := i.fs.Mkdir(fp, fm); err != nil {
-        panic(err)
+        i.vm.Interrupt(err)
     }
     return i.vm.ToValue(nil)
 }
