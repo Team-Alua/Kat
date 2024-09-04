@@ -69,13 +69,15 @@ if (files.length != 2) {
     exit()
 }
 const {root, name} = checkFiles(files);
-const PS4RelRoot = msg.Author.ID; 
+console.log(msg)
+const PS4RelRoot = msg.Message.Author.ID;
 const userPS4Root = `/ps4/${PS4RelRoot}/`;
 fs.mkdir(userPS4Root)
 fs.mkdir(userPS4Root + "extract/")
-fs.copyDir("/tmp", userPS4Root)
+fs.copyDir(root, userPS4Root)
 
-const PS4ROot = `/hostapp/${PS4RelRoot$}`;
+
+const PS4Root = `/hostapp/${PS4RelRoot}`;
 
 const cmds = [{
     "RequestType": "rtDumpSave",
@@ -85,6 +87,7 @@ const cmds = [{
         "selectOnly": [name + '.bin'],
     }
 }]
+fs.mount("", "/save", {"MountType": "tcpfs"})
 
 for (const cmdObj of cmds) {
     let fh = fs.open("/save/10.0.0.5/1234", 0, 0777)
@@ -93,13 +96,15 @@ for (const cmdObj of cmds) {
     let cmd = JSON.stringify(cmdObj);
     streamWriter.writeLine(cmd)
     streamWriter.close()
-    let data = streamReader.readline().trim()
+    let data = streamReader.readLine().trim()
     console.log(data)
     fs.close(fh)
 }
 let jsonConvert = run("gr2_decode");
 let binConvert = run("gr2_encode");
-let onlinePatches = run("online");
+let {execute, convertToSteps} = run("gr2_modder");
+let onlinePatchesJson = run("online");
+let onlinePatchesSteps = convertToSteps(onlinePatchesJson);
 
 let savePath = `${userPS4Root}/extract/${name}.bin`;
 let fi = fs.stat(savePath)
@@ -108,17 +113,19 @@ let fh = fs.open(savePath);
 let buff = fs.read(fh, size)
 fs.close(fh)
 let data = jsonConvert(buff)
+execute(data, onlinePatchesSteps)
 let result = binConvert(data)
+
 let fmode = fs.constants.O_CREATE 
 fmode |= fs.constants.O_WRONLY 
 fmode |= fs.constants.O_TRUNC
-let fh2 = fs.open("/local/data0001.bin",fmode, 0777)
+let fh2 = fs.open("/tmp/" + name + ".bin", fmode, 0777)
 fs.write(fh2, result)
 fs.close(fh2)
 
 
-//
-//let fh = fs.open("/tmp/upload.zip")
-//discord.uploadFile("upload.zip", "application/zip", fh)
-//fs.close(fh)
+let fh3 = fs.open("/tmp/" + name + ".bin")
+discord.uploadFile(name + ".bin", "application/octet-stream", fh3)
+fs.close(fh3)
 
+fs.unmount("/save")

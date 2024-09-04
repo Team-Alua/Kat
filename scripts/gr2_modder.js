@@ -17,10 +17,10 @@
                 let path = "";
                 for (const entry of step.path) {
                     path += "/" + entry;
-                    if (typeof root[entry] == "object") {
-                        newRoot = root[entry];
-                    } else {
+                    if (newRoot[entry] == null) {
                         throw 'Invalid path ' + path;
+                    } else  {
+                        newRoot = newRoot[entry];
                     }
                 }
                 stack.push(currRoot);
@@ -138,7 +138,7 @@
         }
     }
 
-    function mergeToSteps(json) {
+    function convertToSteps(json) {
         const steps = [];
         const root = {};
         const rootValues = {};
@@ -168,5 +168,5 @@
         buildSteps(root, steps);
         return steps;
     }
-    return {execute, mergeToSteps};
+    return {execute, convertToSteps};
 })()
